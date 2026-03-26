@@ -4,11 +4,12 @@
 
 | 字段 | 内容 |
 |------|------|
-| 文档版本 | v5.0 |
+| 文档版本 | v5.2 |
 | 原始版本 | v1.0（2026-03-21） |
-| 本次更新 | 2026-03-27（技术路线锁定：YOLO-World + VINS-Fusion + EGO-Planner 完整闭环） |
+| 本次更新 | 2026-03-27（YOLO-World 本地部署完成；推理验证通过；相关 patch 记录） |
 | 适用项目 | `hw_insight`（PX4 + AirSim + ROS 2 Humble） |
-| 当前阶段 | Phase 0/1 已完成；**Phase 2 技术选型已锁定（YOLO-World + VINS-Fusion + EGO-Planner）**；EGO-Planner 仿真最小闭环已接入 |
+| 代码仓库 | `git@github.com:Garfield-Wuu/LLM-UAV-ROS2.git`（branch: main） |
+| 当前阶段 | Phase 0/1 已完成；**Phase 2 进行中**：YOLO-World 已本地部署并验证推理（CPU/GPU 自动适配，开放词汇检测可用）；EGO-Planner 仿真最小闭环已接入；代码已托管 GitHub |
 | 文档定位 | 同时描述目标架构、当前实现和阶段化开发路线 |
 
 ---
@@ -33,7 +34,7 @@
 | 层级 | 目标技术方案 | 当前状态 | 说明 |
 |------|--------------|----------|------|
 | 大脑（Cognition） | Ollama（Llama 3 / Gemma） | ⚠️ 部分完成 | `llm_client.py` 已支持 Groq / Ollama 双后端、交互式模型选择、远端 Ollama 环境变量、冷启动预热、鲁棒 JSON 提取与 `<think>` 推理日志 |
-| 视觉（Perception） | **YOLO-World** + AirSim Depth Camera | ❌ 未实现 | 已选定 YOLO-World（open-vocabulary detection，`prompt-then-detect` 范式），支持任意文本描述的目标检测；`vision_grounding_node` 尚未实现 |
+| 视觉（Perception） | **YOLO-World** + AirSim Depth Camera | ⚠️ 部分完成 | YOLO-World 已在 `/home/hw/YOLO-World/` 本地部署；YOLO-World-S 模型权重（305MB）与 CLIP 文本编码器已离线化；CPU/GPU 自动适配推理已验证（bus.jpg 3人+1公交，zidane.jpg 2领带+1人）；`vision_grounding_node`（ROS 2 节点集成）尚未实现 |
 | 定位（State Estimation） | **VINS-Fusion**（已选定） | ❌ 未实现 | 多传感器优化状态估计，提供 world frame 高精度位姿；仿真阶段以 `odom_local_ned` 替代，真机阶段接入 VINS-Fusion mono + IMU |
 | 规划（Planning） | **EGO-Planner**（已选定） | ⚠️ 部分接入 | EGO-Planner（ROS 2）已接入仿真最小闭环；Fast-Planner 不再作为候选；完整路线下将切换至 VINS-Fusion 位姿驱动，形成 `target_position_world` → EGO-Planner → PX4 完整链路 |
 | 通信与框架 | ROS 2 Humble + MAVROS 2 | ⚠️ 部分完成 | ROS 2 Humble 已落地；当前飞控通信主链实际使用 `px4_msgs + uXRCE-DDS`，尚未接入 MAVROS 2 |
@@ -184,7 +185,7 @@ PX4 SITL + AirSim
 
 选型说明：YOLO-World 的 `prompt-then-detect` 范式将词汇嵌入重参数化进模型权重，支持任意类别文本描述，推理效率接近标准 YOLO，适合 `red car`、`vehicle near building` 等开放表达目标。
 
-当前状态：**未开始实现**。
+当前状态：**YOLO-World 本地部署完成**（`/home/hw/YOLO-World/`，模型权重 + CLIP 离线化 + 推理验证）；`vision_grounding_node` ROS 2 节点集成尚未实现。
 
 ### 6.2 状态估计层
 
@@ -260,7 +261,27 @@ PX4 SITL + AirSim
 | `move_position.py` / `offboard.py` / `px4_test.py` | 早期 PX4 / ROS 实验脚本 | ⚠️ 保留留痕 | 已不承担产品主链职责 | 后续可整理到 examples / legacy |
 | `lesson3.launch.py` / `lesson4.launch.py` / `lesson4_color.launch.py` | 深度/点云相关实验入口 | ⚠️ 保留留痕 | 不是当前主链，但对视觉阶段有参考价值 | 后续可复用到 `vision_grounding_node` 开发 |
 
-### 7.3 文档留痕原则
+### 7.3 第七次会话新增（S7）
+
+| 文件/入口 | 说明 |
+|-----------|------|
+| `/home/hw/hw-ros2/.gitignore` | Git 忽略规则（排除 build/install/log、第三方包、AirSim C++ 库） |
+| `/home/hw/hw-ros2/README.md` | 项目中文说明文档（技术路线 + 完整工程结构 + 快速开始） |
+| Git 仓库 `/home/hw/hw-ros2/` | 在 `hw-ros2/` 层初始化；SSH 方式推送到 `Garfield-Wuu/LLM-UAV-ROS2`；首次提交 129 个文件 |
+
+### 7.4 第八次会话新增（S8）
+
+| 文件/操作 | 说明 |
+|-----------|------|
+| `/home/hw/YOLO-World/test_yolo_world.py` | CPU/GPU 自动适配推理脚本；支持自定义词汇表；结果输出到 `outputs/` 目录 |
+| `/home/hw/YOLO-World/weights/yolo_world_v2_s_stage1.pth` | YOLO-World-S 预训练权重（305MB，HuggingFace 下载） |
+| `/home/hw/YOLO-World/clip_tokenizer/` | CLIP ViT-B/32 完整模型（tokenizer + pytorch_model.bin），离线化避免联网 |
+| `mmengine/optim/optimizer/builder.py` patch | 修复 torch 2.11 与 mmengine 0.10.3 `Adafactor` 重复注册冲突 |
+| `yolo_world/models/detectors/yolo_world.py` patch | 修复 `cannot assign to None` 语法错误（`None` → `_`） |
+| 依赖安装 | `mmengine==0.10.3`、`mmcv-lite==2.0.1`、`mmdet==3.0.0`、`mmyolo==0.6.0`、`timm==0.6.13`、`transformers==4.36.2`、`supervision==0.19.0`、`lvis` |
+| 推理验证 | bus.jpg：3人+1公交（score 0.70–0.81）；zidane.jpg：2领带+1人（score 0.27–0.72） |
+
+### 7.5 文档留痕原则
 
 后续更新文档时，针对历史功能和文件不应直接删除记录，而应优先采用以下标注方式：
 
@@ -326,7 +347,7 @@ PX4 SITL + AirSim
 - tf2 变换链：camera → body → world（固定外参 + VINS 位姿）
 - 发布 `target_position_world` 到 `/uav/target_goal`
 
-状态：🔲 未开始（技术选型已锁定）
+状态：🟡 进行中（YOLO-World 本地部署完成，推理验证通过；`vision_grounding_node` ROS 2 节点集成为下一步）
 
 ### Phase 3：VINS-Fusion 位姿接入 + EGO-Planner 完整闭环
 
@@ -500,13 +521,17 @@ ros2 run hw_insight gcs_dashboard --ros-args -p refresh_rate_hz:=4.0
 - 将 `/uav/llm_task_status` 的关键字段稳定化
 - 评估是否将 `<think>` 日志同步到独立 ROS topic / 本地审计文件
 
-### P2：启动视觉语义识别最小链路（YOLO-World）
+### P2：视觉语义识别接入 ROS 2（YOLO-World → vision_grounding_node）
 
-- 新建 `vision_grounding_node`，集成 YOLO-World 推理接口
-- 固定使用 DepthPlanar，实现 bbox 区域中位数深度提取
-- 基于相机内参完成逆投影，输出 camera frame 3D 点
-- 配置 tf2 外参（camera→body），用 AirSim odom 替代 VINS 先跑通坐标变换
-- 先打通 `/uav/target_goal`，再接 Planner
+> **YOLO-World 本地推理已完成**（S8）：模型部署、离线化、CPU/GPU 自动适配均已验证。
+
+- ✅ YOLO-World 本地部署与推理测试（`test_yolo_world.py`，S8 完成）
+- 🔲 新建 `vision_grounding_node`，将 YOLO-World 推理包装为 ROS 2 节点
+- 🔲 订阅 `/airsim_node/PX4/Scene` RGB 图像 + `/uav/target_query` 文本 prompt
+- 🔲 固定使用 DepthPlanar，实现 bbox 区域中位数深度提取
+- 🔲 基于相机内参完成逆投影，输出 camera frame 3D 点
+- 🔲 配置 tf2 外参（camera→body），用 AirSim odom 替代 VINS 先跑通坐标变换
+- 🔲 发布 `/uav/target_goal`，再接 Planner
 
 ### P3：VINS-Fusion 接入 + EGO-Planner 完整闭环
 
