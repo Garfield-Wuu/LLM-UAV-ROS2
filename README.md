@@ -37,33 +37,91 @@
 
 ---
 
-## 仓库结构
+## 完整工程结构
+
+下表列出新机器复现时所需的**全部目录**，标注了哪些已在本仓库中、哪些需要另外获取。
+
+### 本仓库包含（`git clone` 后自动就位）
 
 ```
-hw-ros2/
-├── ros2/
-│   └── src/
-│       ├── hw_insight/              # 核心自研包（Python 节点 + 文档）
-│       │   ├── hw_insight/          # 节点源码
-│       │   │   ├── llm_client.py            # LLM 推理节点（Groq / Ollama）
-│       │   │   ├── text_command_bridge.py   # 指令解析与飞行动作桥接
-│       │   │   ├── move_velocity.py         # PX4 Offboard 执行节点
-│       │   │   ├── gcs_dashboard.py         # 地面站 TUI
-│       │   │   ├── flight_regression_runner.py  # 闭环回归测试
-│       │   │   ├── planner_velocity_bridge.py   # 规划器速度桥接
-│       │   │   └── ego_bspline_to_twist_relay.py
-│       │   ├── launch/              # 启动文件
-│       │   ├── config/              # 参数配置
-│       │   ├── rviz/                # RViz 配置
-│       │   └── docs/                # 集成文档
-│       ├── hw_interface/            # 自研 ROS 2 消息接口
-│       └── external/
-│           └── ego_planner_core/    # EGO-Planner 核心（含修改）
-└── setup/
-    └── setup.sh                     # 环境安装脚本
+hw-ros2/                                      ← 本仓库根目录
+├── .gitignore
+├── README.md
+├── setup/
+│   ├── setup.sh                              # 一键安装 ROS 2 + 依赖脚本
+│   └── ros-archive-keyring.gpg
+└── ros2/
+    └── src/
+        ├── hw_insight/                       # ★ 核心自研包
+        │   ├── hw_insight/                   # Python 节点
+        │   │   ├── llm_client.py             #   LLM 推理（Groq / Ollama 双后端）
+        │   │   ├── text_command_bridge.py    #   指令解析 + 11 个动作分发
+        │   │   ├── move_velocity.py          #   PX4 Offboard 执行器
+        │   │   ├── gcs_dashboard.py          #   地面站 TUI（4Hz）
+        │   │   ├── flight_regression_runner.py  # 闭环回归测试
+        │   │   ├── planner_velocity_bridge.py   # Planner Twist → keyboard_velocity
+        │   │   └── ego_bspline_to_twist_relay.py
+        │   ├── launch/                       # 启动文件
+        │   │   ├── text_command_test.launch.py      # 默认手飞 / LLM 链
+        │   │   ├── planner_integration.launch.py    # AirSim + EGO-Planner + RViz
+        │   │   ├── ego_planner_integration.launch.py
+        │   │   └── gcs_dashboard.launch.py
+        │   ├── config/mapping_config.yaml    # 话题与坐标帧映射说明
+        │   ├── rviz/ego_planner_debug.rviz   # RViz 调试配置
+        │   ├── docs/                         # 集成文档与排障日志
+        │   ├── COMMAND_PROTOCOL.md           # 指令协议规范
+        │   ├── PRD_text_command_flight_mvp.md
+        │   ├── README_text_command_test.md
+        │   ├── SESSION_HANDOVER.md
+        │   └── PRODUCT_TEST_FLOW.md
+        ├── hw_interface/                     # ★ 自研 ROS 2 消息接口
+        │   └── msg/HWSimpleKeyboardInfo.msg
+        └── external/
+            └── ego_planner_core/             # ★ EGO-Planner 核心（含本项目修改）
+                └── planner/
+                    ├── ego_planner/          #   规划主逻辑
+                    ├── plan_env/             #   栅格地图（已修改 cam2body + 缓冲区）
+                    ├── bspline_opt/          #   B 样条优化
+                    ├── path_searching/       #   A* 路径搜索
+                    └── traj_utils/           #   轨迹工具 + Bspline.msg
 ```
 
-> **注意**：第三方依赖包（`airsim_ros_pkgs`、`px4_msgs`、`px4_ros_com` 等）、构建产物（`build/`、`install/`）均已通过 `.gitignore` 排除，需在新机器上手动安装，详见下方"环境搭建"。
+### 需要另外获取（不在本仓库，新机器必须手动安装）
+
+```
+ros2/src/                                     ← clone 到同一 ros2/src/ 目录下
+├── px4_msgs/                                 # PX4 uORB 消息定义
+│   └── [clone] https://github.com/PX4/px4_msgs  (branch: main, tag: v2.0.1)
+├── px4_ros_com/                              # PX4 ROS 2 通信工具
+│   └── [clone] https://github.com/PX4/px4_ros_com
+├── airsim_ros_pkgs/                          # AirSim ROS 2 节点
+│   └── [clone] https://github.com/microsoft/AirSim  (取 ros2/src/airsim_ros_pkgs)
+├── airsim_interfaces/                        # AirSim ROS 2 消息接口
+│   └── 同上 AirSim 仓库 (取 ros2/src/airsim_interfaces)
+└── px4-ros2-interface-lib-1.4.0/             # PX4 ROS 2 接口库（可选）
+    └── [clone] https://github.com/Auterion/px4-ros2-interface-lib  (v1.4.0)
+
+~/                                            ← 放在 home 目录，不在本仓库
+├── px4v1.15.2/                               # PX4 SITL 飞控
+│   └── [clone] https://github.com/PX4/PX4-Autopilot  (v1.15.2)
+├── Micro-XRCE-DDS-Agent/                     # uXRCE-DDS 桥接 Agent
+│   └── [clone] https://github.com/eProsima/Micro-XRCE-DDS-Agent
+├── YOLO-World/                               # 视觉语义识别（Phase 2）
+│   └── [clone] https://github.com/AILab-CVC/YOLO-World
+├── QGroundControlV4.4.4.AppImage            # 地面站（可选监控）
+│   └── 下载自 https://github.com/mavlink/qgroundcontrol/releases
+└── AirSim（Windows 侧）                      # Unreal Engine 仿真环境
+    └── 下载自 https://github.com/microsoft/AirSim/releases
+```
+
+### 构建产物（不提交，本地生成）
+
+```
+ros2/
+├── build/     # colcon build 生成，约 600 MB
+├── install/   # colcon build 生成，约 160 MB
+└── log/       # 构建日志
+```
 
 ---
 
