@@ -1,0 +1,227 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Occupancy1
+        - /OccupancyInflate1
+        - /RGBCamera1
+        - /DepthCamera1
+      Splitter Ratio: 0.5
+    Tree Height: 700
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Tool Properties
+    Expanded:
+      - /2D Goal Pose1
+      - /Publish Point1
+    Name: Tool Properties
+    Splitter Ratio: 0.58
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz_common/Time
+    Name: Time
+    SyncMode: 0
+    SyncSource: ""
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 40
+      Color: 160; 160; 164
+      Alpha: 0.4
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
+      Marker Scale: 0.5
+
+    # ── Planner trajectory markers ──
+    - Class: rviz_default_plugins/Marker
+      Name: GoalMarker
+      Enabled: true
+      Topic:
+        Value: /goal_point
+        Depth: 5
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+    - Class: rviz_default_plugins/Marker
+      Name: GlobalTraj
+      Enabled: true
+      Topic:
+        Value: /global_list
+        Depth: 20
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+    - Class: rviz_default_plugins/Marker
+      Name: InitTraj
+      Enabled: true
+      Topic:
+        Value: /init_list
+        Depth: 20
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+    - Class: rviz_default_plugins/Marker
+      Name: OptimalTraj
+      Enabled: true
+      Topic:
+        Value: /optimal_list
+        Depth: 20
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+    - Class: rviz_default_plugins/Marker
+      Name: AStarTraj
+      Enabled: true
+      Topic:
+        Value: /a_star_list
+        Depth: 20
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+
+    # ── Raw depth point-cloud (DISABLED by default – heavy on RViz) ──
+    - Class: rviz_default_plugins/PointCloud2
+      Name: DepthPoints
+      Enabled: false
+      Topic:
+        Value: /uav/camera/points
+        Depth: 1
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+      Style: Points
+      Size (Pixels): 1
+      Color Transformer: AxisColor
+      Axis: Z
+      Use Fixed Frame: true
+      Decay Time: 0
+
+    # ── Occupancy grid (height color gradient, 0.2m voxels) ──
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Occupancy
+      Enabled: true
+      Topic:
+        Value: /grid_map/occupancy
+        Depth: 1
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+      Style: Boxes
+      Size (m): 0.2
+      Color Transformer: AxisColor
+      Axis: Z
+      Autocompute Value Bounds: true
+      Use Fixed Frame: true
+      Decay Time: 0
+
+    # ── Inflated occupancy (semi-transparent, distinguish from raw) ──
+    - Class: rviz_default_plugins/PointCloud2
+      Name: OccupancyInflate
+      Enabled: true
+      Topic:
+        Value: /grid_map/occupancy_inflate
+        Depth: 1
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+      Style: Boxes
+      Size (m): 0.2
+      Alpha: 0.35
+      Color Transformer: AxisColor
+      Axis: Z
+      Autocompute Value Bounds: true
+      Use Fixed Frame: true
+      Decay Time: 0
+
+    # ── Camera image panels (RGB + Depth) ──
+    - Class: rviz_default_plugins/Image
+      Name: RGBCamera
+      Enabled: true
+      Topic:
+        Value: /airsim_node/PX4/CameraDepth1/Scene
+        Depth: 1
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Normalize Range: true
+      Queue Size: 1
+    - Class: rviz_default_plugins/Image
+      Name: DepthCamera
+      Enabled: true
+      Topic:
+        Value: /airsim_node/PX4/CameraDepth1/DepthPlanar
+        Depth: 1
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+      Max Value: 20
+      Median window: 5
+      Min Value: 0
+      Normalize Range: false
+      Queue Size: 1
+
+  Enabled: true
+  Global Options:
+    Background Color: 30; 30; 30
+    Fixed Frame: world
+    Frame Rate: 15
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic:
+        Value: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Value: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
+      Single click: true
+      Topic:
+        Value: /clicked_point
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 25
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: -5
+      Pitch: 0.5
+      Yaw: 2.8
+      Invert Z Axis: false
+      Target Frame: <Fixed Frame>
+Window Geometry:
+  Displays:
+    collapsed: false
+  RGBCamera:
+    collapsed: false
+  DepthCamera:
+    collapsed: false
+  Height: 980
+  Width: 1800
+  X: 50
+  Y: 50

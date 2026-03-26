@@ -1,0 +1,50 @@
+mapping:
+  frames:
+    world_frame: "world"
+    planner_frame: "world"
+    vins_frame: "world"
+    px4_local_frame: "NED"
+    project_convention_note: "规划层统一使用world(ENU)，对接PX4执行层时在桥接层处理ENU/NED转换。"
+
+  input_topics:
+    target_goal:
+      from: "/uav/target_goal"
+      type: "geometry_msgs/msg/PoseStamped"
+      to: "/goal_pose"
+      owner: "ego_planner"
+      note: "TextCommandBridge在GOTO_NED时发布目标点，供规划器消费。"
+    odometry:
+      from: "/vins/odometry"
+      type: "nav_msgs/msg/Odometry"
+      to:
+        - "odom_world"
+        - "grid_map/odom"
+      owner: "ego_planner"
+      note: "VINS位姿作为规划状态输入。"
+    cloud:
+      from: "/uav/camera/points"
+      type: "sensor_msgs/msg/PointCloud2"
+      to: "grid_map/cloud"
+      owner: "ego_planner"
+      note: "AirSim深度点云输入占据栅格。"
+
+  planner_output:
+    bspline:
+      from: "/uav/ego_planner/bspline"
+      type: "traj_utils/msg/Bspline"
+      to: "/uav/planner_cmd_vel_stamped"
+      relay_node: "ego_bspline_to_twist_relay"
+      note: "通过B样条速度近似转换为TwistStamped。"
+    velocity_bridge:
+      from: "/uav/planner_cmd_vel_stamped"
+      type: "geometry_msgs/msg/TwistStamped"
+      to: "/hw_insight/keyboard_velocity"
+      relay_node: "planner_velocity_bridge"
+      note: "复用现有move_velocity执行链。"
+
+  safety:
+    timeout_sec: 0.35
+    max_vx: 15.0
+    max_vy: 15.0
+    max_vz: 5.0
+    max_yaw_rate: 1.5
