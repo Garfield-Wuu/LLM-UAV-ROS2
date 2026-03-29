@@ -38,6 +38,10 @@ setup(
             'gcs_dashboard = hw_insight.gcs_dashboard:main',
             'flight_regression_runner = hw_insight.flight_regression_runner:main',
             'llm_client = hw_insight.llm_client:main',
+            'yolo_world_detector = hw_insight.yolo_world_detector:main',
+            'target_grounding_node = hw_insight.target_grounding_node:main',
+            'semantic_target_tf_node = hw_insight.semantic_target_tf_node:main',
+            'semantic_goal_to_planner = hw_insight.semantic_goal_to_planner:main',
         ],
     },
 )

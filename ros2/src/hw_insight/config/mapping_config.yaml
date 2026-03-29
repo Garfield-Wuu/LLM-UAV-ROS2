@@ -42,6 +42,32 @@ mapping:
       relay_node: "planner_velocity_bridge"
       note: "复用现有move_velocity执行链。"
 
+  semantic_perception:
+    target_query:
+      topic: "/uav/target_query"
+      type: "std_msgs/msg/String"
+      note: "文本prompt，如'red car'，由LLM或手动发布"
+    detections_2d:
+      topic: "/uav/detections_2d"
+      type: "std_msgs/msg/String"
+      note: "YOLO-World 2D检测结果JSON（label/score/bbox/stamp）"
+      owner: "yolo_world_detector"
+    semantic_targets_camera:
+      topic: "/uav/semantic_targets_camera"
+      type: "std_msgs/msg/String"
+      note: "camera frame 3D目标点JSON（x_cam/y_cam/z_cam + depth）"
+      owner: "target_grounding_node"
+    semantic_targets_world:
+      topic: "/uav/semantic_targets_world"
+      type: "std_msgs/msg/String"
+      note: "world frame 3D目标点JSON（x_world/y_world/z_world）"
+      owner: "semantic_target_tf_node"
+    semantic_target_marker:
+      topic: "/uav/semantic_target_marker"
+      type: "visualization_msgs/msg/Marker"
+      note: "RViz球体可视化，world frame"
+      owner: "semantic_target_tf_node"
+
   safety:
     timeout_sec: 0.35
     max_vx: 15.0

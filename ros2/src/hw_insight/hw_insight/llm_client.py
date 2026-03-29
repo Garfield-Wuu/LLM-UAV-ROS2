@@ -54,6 +54,7 @@ _OLLAMA_PRESETS = [
 ALLOWED_ACTIONS = frozenset({
     'TAKEOFF', 'LAND', 'HOVER', 'MOVE_VELOCITY', 'MOVE_REL',
     'GOTO_NED', 'ORBIT', 'YAW_TO', 'RTL', 'EMERGENCY_STOP', 'SET_SPEED',
+    'FIND_AND_GOTO',
 })
 
 # Safety-critical actions are never blocked by altitude/speed validation
@@ -116,6 +117,15 @@ _ACTION_ALIASES: Dict[str, str] = {
     'KILL':            'EMERGENCY_STOP',
     'E_STOP':          'EMERGENCY_STOP',
     'ESTOP':           'EMERGENCY_STOP',
+    # FIND_AND_GOTO variants
+    'FIND':            'FIND_AND_GOTO',
+    'SEARCH':          'FIND_AND_GOTO',
+    'LOCATE':          'FIND_AND_GOTO',
+    'FLY_TO_TARGET':   'FIND_AND_GOTO',
+    'SEEK':            'FIND_AND_GOTO',
+    'VISUAL_GOTO':     'FIND_AND_GOTO',
+    'FIND_AND_FLY':    'FIND_AND_GOTO',
+    'TRACK_AND_GOTO':  'FIND_AND_GOTO',
 }
 
 # ── Parameter schema per action ───────────────────────────────────────────────
@@ -146,6 +156,7 @@ _PARAM_SCHEMA: Dict[str, list] = {
     'RTL':           [],
     'EMERGENCY_STOP': [],
     'SET_SPEED':     [('speed',     float, 0.1,  None, True)],
+    'FIND_AND_GOTO': [('query',     str,   None, None, True)],
 }
 
 _SYSTEM_PROMPT_TEMPLATE = """\
@@ -163,6 +174,13 @@ _SYSTEM_PROMPT_TEMPLATE = """\
   RTL            {{"action":"RTL","params":{{}}}}
   EMERGENCY_STOP {{"action":"EMERGENCY_STOP","params":{{}}}}
   SET_SPEED      {{"action":"SET_SPEED","params":{{"speed":3.0}}}}
+  FIND_AND_GOTO  {{"action":"FIND_AND_GOTO","params":{{"query":"person wearing yellow clothes"}}}}
+    ↑ 当用户描述需要视觉识别的目标时使用此动作。
+      系统会用摄像头搜索目标，找到后自动飞至目标位置。
+      query 必须用英文描述目标的外观特征，例如：
+        "person wearing yellow jacket"
+        "red car"
+        "blue bicycle near the tree"
 
 ━━━ 坐标轴方向（严格遵守，错方向等于撞机）━━━
 MOVE_VELOCITY / MOVE_REL 使用机体坐标（相对无人机机头方向）：
@@ -845,6 +863,9 @@ class LLMClient(Node):
         params: Dict[str, Any] = self._coerce_params(action, dict(cmd.get('params', {})))
         if action in SAFETY_PASS_ACTIONS:
             return {'action': action, 'params': params}
+        # Visual search: no altitude/speed params to clamp; pass through directly
+        if action == 'FIND_AND_GOTO':
+            return {'action': action, 'params': params}
         if 'altitude' in params:
             alt = float(params['altitude'])
             if alt > self._max_alt:
@@ -880,6 +901,14 @@ class LLMClient(Node):
         # Safety-critical actions bypass all parameter checks
         if action in SAFETY_PASS_ACTIONS:
             return {'action': action, 'params': params}
+
+        # Visual-semantic actions: pass through with minimal validation (no speed/altitude params)
+        if action == 'FIND_AND_GOTO':
+            query = str(params.get('query', '')).strip()
+            if not query:
+                self.get_logger().warn('FIND_AND_GOTO: empty query, falling back to HOVER')
+                return {'action': 'HOVER', 'params': {}}
+            return {'action': action, 'params': {'query': query}}
 
         # Clamp altitude
         if 'altitude' in params:

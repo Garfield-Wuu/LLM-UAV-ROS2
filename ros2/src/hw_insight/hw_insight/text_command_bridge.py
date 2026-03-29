@@ -104,9 +104,17 @@ class TextCommandBridge(Node):
         self.vehicle_command_pub = self.create_publisher(
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile,
         )
+        # Visual-semantic search: publish query to detector, subscribe to world targets
+        self._target_query_pub = self.create_publisher(
+            String, '/uav/target_query', 10,
+        )
 
         # ── Subscribers ─────────────────────────────────────────────────────
         self.create_subscription(String, '/uav/user_command', self.user_command_callback, 10)
+        self.create_subscription(
+            String, '/uav/semantic_targets_world',
+            self._on_semantic_targets_world, 10,
+        )
         self.create_subscription(
             VehicleLocalPosition, '/fmu/out/vehicle_local_position',
             self.vehicle_local_position_callback, qos_profile,
@@ -157,6 +165,12 @@ class TextCommandBridge(Node):
         self.vehicle_status = VehicleStatus()
         self.has_local_position: bool = False
 
+        # ── Visual-semantic search state ─────────────────────────────────────
+        self._search_active: bool = False
+        self._search_query: str = ''
+        self._search_deadline_ns: Optional[int] = None
+        self._search_timeout_sec: float = 20.0  # seconds before giving up
+
         # ── Timers ───────────────────────────────────────────────────────────
         self.create_timer(ORBIT_TIMER_DT, self.publish_active_command)
         self.create_timer(0.2, self.publish_telemetry_status)
@@ -197,6 +211,11 @@ class TextCommandBridge(Node):
                 self.publish_status('PUBLISHED', self.active_command_label)
                 self.publish_report_pending = False
             return
+
+        # ── Visual search timeout ────────────────────────────────────────────
+        if self._search_active and self._search_deadline_ns is not None:
+            if self.get_clock().now().nanoseconds >= self._search_deadline_ns:
+                self._cancel_search(reason='timeout')
 
         # ── Deadline check ──────────────────────────────────────────────────
         if (
@@ -418,6 +437,15 @@ class TextCommandBridge(Node):
         action = action.upper()
         if action != 'GOTO_NED':
             self.planner_control_active = False
+
+        # Cancel any active visual search when a new command arrives
+        if self._search_active and action != 'FIND_AND_GOTO':
+            self.get_logger().info(
+                f'[FIND_AND_GOTO] Search for "{self._search_query}" cancelled by {action}'
+            )
+            self._search_active = False
+            self._search_query = ''
+            self._search_deadline_ns = None
 
         # ── TAKEOFF ──────────────────────────────────────────────────────────
         if action == 'TAKEOFF':
@@ -641,6 +669,39 @@ class TextCommandBridge(Node):
             self.publish_report_pending = True
             return
 
+        # ── FIND_AND_GOTO ─────────────────────────────────────────────────────
+        if action == 'FIND_AND_GOTO':
+            query = str(params.get('query', '')).strip()
+            if not query:
+                self.publish_status('UNKNOWN_COMMAND', raw_command,
+                                    {'reason': 'EMPTY_VISUAL_QUERY', 'fallback': 'HOVER'})
+                self.switch_to_hover()
+                return
+            # Stop any existing navigation, hover while searching
+            self._clear_nav_state()
+            self._search_active = True
+            self._search_query = query
+            self._search_deadline_ns = (
+                self.get_clock().now().nanoseconds + int(self._search_timeout_sec * 1e9)
+            )
+            self.active_command = self.hover_command
+            self.active_command_label = 'SEARCHING'
+            # Publish search query to YOLO-World detector
+            q_msg = String()
+            q_msg.data = query
+            self._target_query_pub.publish(q_msg)
+            self.publish_status('MAPPED', raw_command, {
+                'action': action,
+                'query': query,
+                'timeout_sec': self._search_timeout_sec,
+            })
+            self.get_logger().info(
+                f'[FIND_AND_GOTO] Searching for "{query}" '
+                f'(timeout={self._search_timeout_sec:.0f}s)'
+            )
+            self.publish_report_pending = True
+            return
+
         # ── Unknown ───────────────────────────────────────────────────────────
         self.publish_status('UNKNOWN_COMMAND', raw_command,
                             {'reason': f'UNSUPPORTED_ACTION_{action}', 'fallback': 'HOVER'})
@@ -662,6 +723,96 @@ class TextCommandBridge(Node):
         self.active_command = self.hover_command
         self.active_command_label = 'IDLE'
         self.publish_report_pending = True
+
+    def _cancel_search(self, reason: str = 'cancelled') -> None:
+        """Cancel an in-progress visual search and revert to HOVER."""
+        query = self._search_query
+        self._search_active = False
+        self._search_query = ''
+        self._search_deadline_ns = None
+        self.publish_status('SEARCH_FAILED', 'FIND_AND_GOTO', {
+            'query': query, 'reason': reason,
+        })
+        if reason == 'timeout':
+            self.get_logger().warn(
+                f'[FIND_AND_GOTO] Timeout — target "{query}" not found within '
+                f'{self._search_timeout_sec:.0f}s, reverting to HOVER'
+            )
+            self.switch_to_hover()
+
+    # ─────────────────────── Visual semantic search callback ─────────────────
+
+    def _on_semantic_targets_world(self, msg: String) -> None:
+        """Handle detections from semantic_target_tf_node.
+
+        Called when YOLO-World + grounding + TF pipeline publishes a world-frame
+        target list on /uav/semantic_targets_world.  If a FIND_AND_GOTO search
+        is active, selects the best detection and transitions to GOTO_NED.
+        """
+        if not self._search_active:
+            return  # no active search — ignore detections
+
+        try:
+            data = json.loads(msg.data)
+        except json.JSONDecodeError as exc:
+            self.get_logger().warn(f'[FIND_AND_GOTO] JSON parse error: {exc}')
+            return
+
+        targets = data.get('targets', [])
+        if not targets:
+            return  # wait for the next frame
+
+        # Select highest-confidence target
+        best = max(targets, key=lambda t: float(t.get('score', 0.0)))
+        score = float(best.get('score', 0.0))
+        if score < 0.15:
+            return  # confidence too low — keep searching
+
+        # ── Coordinate conversion: ENU world → NED for GOTO_NED ──────────────
+        # semantic_target_tf_node outputs ENU: x_world=East, y_world=North, z_world=Up
+        # GOTO_NED uses:  x=North, y=East, altitude=positive_up
+        x_enu = float(best.get('x_world', 0.0))  # East
+        y_enu = float(best.get('y_world', 0.0))  # North
+        z_enu = float(best.get('z_world', 0.0))  # Up
+
+        x_ned = y_enu   # North
+        y_ned = x_enu   # East
+
+        # Use current drone altitude so we fly to the target's XY but maintain
+        # our height (prevents flying into the ground when target is at z≈0).
+        if self.has_local_position:
+            current_alt = max(2.0, -float(self.vehicle_local_position.z))
+        else:
+            current_alt = 6.0  # fallback
+
+        label = str(best.get('label', '?'))
+        depth = float(best.get('depth_m', 0.0))
+        query = self._search_query
+
+        self.get_logger().info(
+            f'[FIND_AND_GOTO] Found "{label}" score={score:.2f} depth={depth:.1f}m '
+            f'-> GOTO_NED x={x_ned:.2f} y={y_ned:.2f} alt={current_alt:.1f}m'
+        )
+
+        # Clear search state BEFORE calling apply_command
+        self._search_active = False
+        self._search_query = ''
+        self._search_deadline_ns = None
+
+        self.publish_status('SEARCH_FOUND', 'FIND_AND_GOTO', {
+            'query': query,
+            'label': label,
+            'score': score,
+            'depth_m': depth,
+            'target_ned': {'x': x_ned, 'y': y_ned, 'altitude': current_alt},
+        })
+
+        # Transition to GOTO_NED
+        self.apply_command(
+            'GOTO_NED',
+            {'x': x_ned, 'y': y_ned, 'altitude': current_alt},
+            f'FIND_AND_GOTO({query})->GOTO_NED({label})',
+        )
 
     # ═══════════════════════════ Telemetry ═══════════════════════════════════
 
@@ -712,6 +863,10 @@ class TextCommandBridge(Node):
                 'x': self.goto_target[0], 'y': self.goto_target[1],
                 'altitude': -self.goto_target[2],
             }
+        if self._search_active and self._search_deadline_ns is not None:
+            remaining = (self._search_deadline_ns - self.get_clock().now().nanoseconds) / 1e9
+            extra['searching_query'] = self._search_query
+            extra['search_remaining_sec'] = round(max(0.0, remaining), 1)
 
         self.publish_status('TELEMETRY', self.active_command_label, extra)
 

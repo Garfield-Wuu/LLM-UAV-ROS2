@@ -32,7 +32,9 @@
 | 任务理解 | LLM（Groq API / Ollama 双后端） | ✅ 已接入 |
 | 飞行执行 | 11 个动作协议 + PX4 Offboard | ✅ 已接入 |
 | 局部规划 | EGO-Planner（仿真最小闭环） | ⚠️ 部分接入 |
-| 视觉识别 | YOLO-World（open-vocabulary） | ⚠️ 本地部署完成，ROS 2 集成进行中 |
+| 视觉识别 | YOLO-World（open-vocabulary） | ✅ ROS 2 实时检测节点已完成 |
+| 几何 Grounding | AirSim DepthPlanar + 中位数深度逆投影 | ✅ camera frame 3D grounding 节点已完成 |
+| 坐标变换 | camera→body→world（AirSim odom / VINS 可切换） | ✅ world frame 变换节点已完成 |
 | 状态估计 | VINS-Fusion | 📋 规划中 |
 
 ---
@@ -60,11 +62,16 @@ hw-ros2/                                      ← 本仓库根目录
         │   │   ├── gcs_dashboard.py          #   地面站 TUI（4Hz）
         │   │   ├── flight_regression_runner.py  # 闭环回归测试
         │   │   ├── planner_velocity_bridge.py   # Planner Twist → keyboard_velocity
-        │   │   └── ego_bspline_to_twist_relay.py
+        │   │   ├── ego_bspline_to_twist_relay.py
+        │   │   ├── yolo_world_detector.py     #   YOLO-World 开放词汇检测 ROS 2 节点
+        │   │   ├── target_grounding_node.py   #   2D bbox + 深度 → camera frame 3D 点
+        │   │   ├── semantic_target_tf_node.py  #   camera frame → world frame + RViz marker
+        │   │   └── semantic_goal_to_planner.py #   world 目标 → /uav/target_goal 桥接
         │   ├── launch/                       # 启动文件
         │   │   ├── text_command_test.launch.py      # 默认手飞 / LLM 链
         │   │   ├── planner_integration.launch.py    # AirSim + EGO-Planner + RViz
         │   │   ├── ego_planner_integration.launch.py
+        │   │   ├── semantic_perception.launch.py    # 语义感知链（YOLO + Grounding + TF）
         │   │   └── gcs_dashboard.launch.py
         │   ├── config/mapping_config.yaml    # 话题与坐标帧映射说明
         │   ├── rviz/ego_planner_debug.rviz   # RViz 调试配置
@@ -271,6 +278,36 @@ ros2 run hw_insight llm_client
 
 # T6：地面站 TUI（可选）
 ros2 run hw_insight gcs_dashboard --ros-args -p refresh_rate_hz:=4.0
+```
+
+### 4.5 启动语义感知链（Phase 2 视觉闭环）
+
+在 T1-T4 已运行的基础上，额外开一个终端：
+
+```bash
+# T7：语义感知链（YOLO-World 检测 + 深度 Grounding + World TF + RViz Marker）
+cd ~/hw-ros2/ros2
+source /opt/ros/humble/setup.bash && source install/setup.bash
+export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
+ros2 launch hw_insight semantic_perception.launch.py texts:="red car"
+
+# 自定义参数示例
+ros2 launch hw_insight semantic_perception.launch.py \
+    texts:="person,car,truck" \
+    publish_target_goal:=false \
+    score_thr:=0.3
+```
+
+**手动发布 prompt 测试**（不依赖 LLM）：
+```bash
+ros2 topic pub --once /uav/target_query std_msgs/msg/String "{data: 'red car'}"
+```
+
+**验证数据流**：
+```bash
+ros2 topic echo /uav/detections_2d --once          # 2D 检测结果
+ros2 topic echo /uav/semantic_targets_camera --once # camera frame 3D 点
+ros2 topic echo /uav/semantic_targets_world --once  # world frame 3D 点
 ```
 
 ---
