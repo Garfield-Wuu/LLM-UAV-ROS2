@@ -1,0 +1,135 @@
+[
+  {"id":"T01","text":"起飞到 6 米","action":"TAKEOFF","params":{"altitude":6.0}},
+  {"id":"T02","text":"起飞到 8 米","action":"TAKEOFF","params":{"altitude":8.0}},
+  {"id":"T03","text":"升空到 12 米高度","action":"TAKEOFF","params":{"altitude":12.0}},
+  {"id":"T04","text":"立即降落","action":"LAND","params":{}},
+  {"id":"T05","text":"悬停 3 秒","action":"HOVER","params":{"duration":3.0}},
+  {"id":"T06","text":"保持悬停 5 秒","action":"HOVER","params":{"duration":5.0}},
+  {"id":"T07","text":"向前飞 5 米，持续 2.5 秒","action":"MOVE_REL","params":{"dx":5.0,"dy":0.0,"dz":0.0,"duration":2.5}},
+  {"id":"T08","text":"向后退 4 米，用 2 秒完成","action":"MOVE_REL","params":{"dx":-4.0,"dy":0.0,"dz":0.0,"duration":2.0}},
+  {"id":"T09","text":"向右平移 5 米，持续 2.5 秒","action":"MOVE_REL","params":{"dx":0.0,"dy":5.0,"dz":0.0,"duration":2.5}},
+  {"id":"T10","text":"向左飞 3 米，用 2 秒完成","action":"MOVE_REL","params":{"dx":0.0,"dy":-3.0,"dz":0.0,"duration":2.0}},
+  {"id":"T11","text":"上升 2 米，持续 2 秒","action":"MOVE_REL","params":{"dx":0.0,"dy":0.0,"dz":-2.0,"duration":2.0}},
+  {"id":"T12","text":"下降 2 米，持续 2 秒","action":"MOVE_REL","params":{"dx":0.0,"dy":0.0,"dz":2.0,"duration":2.0}},
+  {"id":"T13","text":"以每秒 2 米的速度向前飞 3 秒","action":"MOVE_VELOCITY","params":{"vx":2.0,"vy":0.0,"vz":0.0,"yaw_rate":0.0,"duration":3.0}},
+  {"id":"T14","text":"以每秒 1.5 米的速度向后飞 4 秒","action":"MOVE_VELOCITY","params":{"vx":-1.5,"vy":0.0,"vz":0.0,"yaw_rate":0.0,"duration":4.0}},
+  {"id":"T15","text":"以 2 米每秒向右飞行 3 秒","action":"MOVE_VELOCITY","params":{"vx":0.0,"vy":2.0,"vz":0.0,"yaw_rate":0.0,"duration":3.0}},
+  {"id":"T16","text":"以 1 米每秒速度上升 2 秒","action":"MOVE_VELOCITY","params":{"vx":0.0,"vy":0.0,"vz":-1.0,"yaw_rate":0.0,"duration":2.0}},
+  {"id":"T17","text":"以每秒 1 米向前、每秒 1 米向右斜飞 3 秒","action":"MOVE_VELOCITY","params":{"vx":1.0,"vy":1.0,"vz":0.0,"yaw_rate":0.0,"duration":3.0}},
+  {"id":"T18","text":"飞到 NED 坐标 x=10, y=5，高度 6 米","action":"GOTO_NED","params":{"x":10.0,"y":5.0,"altitude":6.0}},
+  {"id":"T19","text":"前往 NED 点 x=-5, y=4，高度 8 米","action":"GOTO_NED","params":{"x":-5.0,"y":4.0,"altitude":8.0}},
+  {"id":"T20","text":"机头转到 90 度","action":"YAW_TO","params":{"angle":90.0}},
+  {"id":"T21","text":"将朝向调整到 -90 度","action":"YAW_TO","params":{"angle":-90.0}},
+  {"id":"T22","text":"绕点 (0,5) 以半径 5 米、速度 2 米每秒盘旋 20 秒","action":"ORBIT","params":{"cx":0.0,"cy":5.0,"radius":5.0,"speed":2.0,"duration":20.0}},
+  {"id":"T23","text":"围绕点 (-3,2) 以半径 4 米、速度 1.5 米每秒绕行 15 秒","action":"ORBIT","params":{"cx":-3.0,"cy":2.0,"radius":4.0,"speed":1.5,"duration":15.0}},
+  {"id":"T24","text":"返航","action":"RTL","params":{}},
+  {"id":"T25","text":"紧急停止","action":"EMERGENCY_STOP","params":{}},
+  {"id":"T26","text":"把默认飞行速度设置为 2.5 米每秒","action":"SET_SPEED","params":{"speed":2.5}},
+  {"id":"T27","text":"设置巡航速度为 4 米每秒","action":"SET_SPEED","params":{"speed":4.0}},
+
+  {"id":"T28","text":"先起飞到 6 米，再降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T29","text":"先起飞到 6 米，悬停 3 秒，然后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"HOVER","params":{"duration":3.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T30","text":"先起飞到 6 米，再向前飞 5 米，最后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"MOVE_REL","params":{"dx":5.0,"dy":0.0,"dz":0.0,"duration":2.5}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T31","text":"起飞到 8 米，然后向右飞 5 米，悬停 2 秒后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":8.0}},
+    {"action":"MOVE_REL","params":{"dx":0.0,"dy":5.0,"dz":0.0,"duration":2.5}},
+    {"action":"HOVER","params":{"duration":2.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T32","text":"起飞到 6 米，飞到 NED 点 x=10, y=0，高度 6 米，再悬停 2 秒","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"GOTO_NED","params":{"x":10.0,"y":0.0,"altitude":6.0}},
+    {"action":"HOVER","params":{"duration":2.0}}
+  ]},
+  {"id":"T33","text":"先把速度设置为 3 米每秒，再起飞到 6 米，向前飞 6 米后降落","plan":[
+    {"action":"SET_SPEED","params":{"speed":3.0}},
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"MOVE_REL","params":{"dx":6.0,"dy":0.0,"dz":0.0,"duration":3.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T34","text":"起飞到 6 米后，把机头转到 90 度，再向前飞 4 米，最后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"YAW_TO","params":{"angle":90.0}},
+    {"action":"MOVE_REL","params":{"dx":4.0,"dy":0.0,"dz":0.0,"duration":2.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T35","text":"起飞到 6 米，然后绕点 (0,5) 盘旋 20 秒，最后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"ORBIT","params":{"cx":0.0,"cy":5.0,"radius":5.0,"speed":2.0,"duration":20.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T36","text":"起飞到 6 米，悬停 5 秒，然后返航","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"HOVER","params":{"duration":5.0}},
+    {"action":"RTL","params":{}}
+  ]},
+  {"id":"T37","text":"起飞到 6 米，以每秒 2 米向前、每秒 1 米向右飞 3 秒，悬停 2 秒，再降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"MOVE_VELOCITY","params":{"vx":2.0,"vy":1.0,"vz":0.0,"yaw_rate":0.0,"duration":3.0}},
+    {"action":"HOVER","params":{"duration":2.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T38","text":"起飞到 6 米，再上升 2 米，悬停 2 秒后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"MOVE_REL","params":{"dx":0.0,"dy":0.0,"dz":-2.0,"duration":2.0}},
+    {"action":"HOVER","params":{"duration":2.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T39","text":"起飞到 6 米，下降 2 米，然后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"MOVE_REL","params":{"dx":0.0,"dy":0.0,"dz":2.0,"duration":2.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T40","text":"起飞到 6 米，飞到 NED 点 x=5, y=5，高度 8 米，再降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"GOTO_NED","params":{"x":5.0,"y":5.0,"altitude":8.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T41","text":"起飞到 6 米，把速度设为 2 米每秒，先向前飞 4 米，再向右飞 4 米，最后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"SET_SPEED","params":{"speed":2.0}},
+    {"action":"MOVE_REL","params":{"dx":4.0,"dy":0.0,"dz":0.0,"duration":2.0}},
+    {"action":"MOVE_REL","params":{"dx":0.0,"dy":4.0,"dz":0.0,"duration":2.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T42","text":"起飞到 6 米，把机头转到 -90 度，悬停 1 秒后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"YAW_TO","params":{"angle":-90.0}},
+    {"action":"HOVER","params":{"duration":1.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T43","text":"起飞到 6 米，向前飞 3 米，再向后退 3 米，最后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"MOVE_REL","params":{"dx":3.0,"dy":0.0,"dz":0.0,"duration":1.5}},
+    {"action":"MOVE_REL","params":{"dx":-3.0,"dy":0.0,"dz":0.0,"duration":1.5}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T44","text":"起飞到 6 米，围绕原点以半径 3 米盘旋 10 秒，悬停 2 秒后降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"ORBIT","params":{"cx":0.0,"cy":0.0,"radius":3.0,"speed":1.5,"duration":10.0}},
+    {"action":"HOVER","params":{"duration":2.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T45","text":"起飞到 8 米，飞到 NED 点 x=-6, y=2，高度 8 米，然后返航","plan":[
+    {"action":"TAKEOFF","params":{"altitude":8.0}},
+    {"action":"GOTO_NED","params":{"x":-6.0,"y":2.0,"altitude":8.0}},
+    {"action":"RTL","params":{}}
+  ]},
+
+  {"id":"T46","text":"飞过去","action":"HOVER","params":{}},
+  {"id":"T47","text":"随便飞一圈看看","action":"HOVER","params":{}},
+  {"id":"T48","text":"我也不知道，你看着办","action":"HOVER","params":{}},
+  {"id":"T49","text":"不要移动，只保持当前位置 4 秒","action":"HOVER","params":{"duration":4.0}},
+  {"id":"T50","text":"立刻停止所有动作","action":"EMERGENCY_STOP","params":{}}
+]

@@ -1,0 +1,4 @@
+model_name,task_count,jsr_baseline_pct,jsr_proposed_pct,tpa_pct,avg_latency_sec
+Qwen2.5-7B-Instruct,50,46.0,92.0,65.22,1.515
+Llama 3.2-3B,50,78.0,98.0,48.98,2.672
+Phi-3.5-mini-Instruct,50,10.0,72.0,33.33,8.078

@@ -1,0 +1,13 @@
+model_name,metric,group,value_pct
+Qwen2.5-7B-Instruct,JSR,baseline,46.0
+Qwen2.5-7B-Instruct,JSR,proposed,92.0
+Qwen2.5-7B-Instruct,MCR,baseline,65.0
+Qwen2.5-7B-Instruct,MCR,proposed,70.0
+Llama 3.2-3B,JSR,baseline,78.0
+Llama 3.2-3B,JSR,proposed,98.0
+Llama 3.2-3B,MCR,baseline,65.0
+Llama 3.2-3B,MCR,proposed,100.0
+Phi-3.5-mini-Instruct,JSR,baseline,10.0
+Phi-3.5-mini-Instruct,JSR,proposed,72.0
+Phi-3.5-mini-Instruct,MCR,baseline,0.0
+Phi-3.5-mini-Instruct,MCR,proposed,60.0

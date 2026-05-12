@@ -1,0 +1,4 @@
+model_name,group,episode_count,mcr_pct,asc
+Qwen2.5-7B-Instruct,proposed,20,70.0,3.43
+Llama 3.2-3B,proposed,20,100.0,1.85
+Phi-3.5-mini-Instruct,proposed,20,60.0,1.33

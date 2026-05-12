@@ -1,0 +1,11 @@
+[
+  {"id":"T01","text":"起飞到 6 米","action":"TAKEOFF","params":{"altitude":6.0}},
+  {"id":"T07","text":"向前飞 5 米，持续 2.5 秒","action":"MOVE_REL","params":{"dx":5.0,"dy":0.0,"dz":0.0,"duration":2.5}},
+  {"id":"T22","text":"绕点 (0,5) 以半径 5 米、速度 2 米每秒盘旋 20 秒","action":"ORBIT","params":{"cx":0.0,"cy":5.0,"radius":5.0,"speed":2.0,"duration":20.0}},
+  {"id":"T28","text":"先起飞到 6 米，再降落","plan":[
+    {"action":"TAKEOFF","params":{"altitude":6.0}},
+    {"action":"LAND","params":{}}
+  ]},
+  {"id":"T46","text":"飞过去","action":"HOVER","params":{}},
+  {"id":"T50","text":"立刻停止所有动作","action":"EMERGENCY_STOP","params":{}}
+]

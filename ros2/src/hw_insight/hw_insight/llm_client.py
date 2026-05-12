@@ -21,6 +21,7 @@ import json
 import math
 import os
 import queue
+import shutil
 import sys
 import threading
 import time
@@ -1033,11 +1034,21 @@ def _read_line(prompt: str, default: str = '') -> str:
         return default
 
 
-def _arrow_select(prompt: str, options: list, default_idx: int = 0) -> int:
+def _arrow_select(
+    prompt: str,
+    options: list,
+    default_idx: int = 0,
+    *,
+    viewport: bool = False,
+) -> int:
     """Interactive arrow-key single-choice menu.
 
     options: list of str or (label, detail) tuples.
     Returns the selected index, or default_idx if stdin is not a TTY.
+
+    viewport: if True and the list is longer than the terminal can show at once,
+    only a sliding window of rows is drawn so every option remains reachable
+    via arrow keys (avoids huge scrollback and broken redraws on small terminals).
     """
     try:
         import termios
@@ -1060,9 +1071,23 @@ def _arrow_select(prompt: str, options: list, default_idx: int = 0) -> int:
 
     pad = max(len(_label(o)) for o in options)
 
-    def _render(cur: int) -> list:
+    try:
+        term_h = max(12, shutil.get_terminal_size(fallback=(80, 24)).lines)
+    except Exception:
+        term_h = 24
+    # Reserve lines already printed (prompt + blank) + footer inside the menu block
+    max_vis = max(6, min(n, term_h - 10))
+    use_vp = viewport and n > max_vis
+
+    def _render(cur: int, start: int) -> list:
         rows = []
-        for i, o in enumerate(options):
+        if use_vp:
+            end = min(start + max_vis, n)
+            vis_range = range(start, end)
+        else:
+            vis_range = range(n)
+        for i in vis_range:
+            o = options[i]
             lbl = _label(o)
             det = _detail(o)
             if i == cur:
@@ -1072,11 +1097,21 @@ def _arrow_select(prompt: str, options: list, default_idx: int = 0) -> int:
             if det:
                 row += f'  \033[90m{det}\033[0m'
             rows.append(row)
+        if use_vp:
+            end = min(start + max_vis, n)
+            rows.append(
+                f'\033[90m  第 {start + 1}–{end} 项 / 共 {n} 项'
+                f'（↑↓ 浏览全部）\033[0m'
+            )
         rows.append('\033[90m  ↑↓ 移动   Enter 确认   Ctrl+C 取消\033[0m')
         return rows
 
+    start = 0
+    if use_vp:
+        start = max(0, min(idx - max_vis // 2, n - max_vis))
+
     print(f'\n  {prompt}\n')
-    lines = _render(idx)
+    lines = _render(idx, start)
     for line in lines:
         print(line)
     total = len(lines)
@@ -1104,9 +1139,15 @@ def _arrow_select(prompt: str, options: list, default_idx: int = 0) -> int:
                     continue
             else:
                 continue
+            if use_vp:
+                if idx < start:
+                    start = idx
+                elif idx >= start + max_vis:
+                    start = idx - max_vis + 1
+                start = max(0, min(start, n - max_vis))
             # Redraw: cursor up total lines, overwrite each line
             sys.stdout.write(f'\033[{total}A')
-            for line in _render(idx):
+            for line in _render(idx, start):
                 sys.stdout.write(f'\r\033[K{line}\r\n')
             sys.stdout.flush()
     finally:
@@ -1134,7 +1175,8 @@ def _fetch_ollama_models(host: str, timeout: float = 5.0) -> Optional[list]:
             return None
         result = []
         for m in sorted(models, key=lambda x: x.get('size', 0), reverse=True):
-            name = m.get('name', '')
+            name = (m.get('name') or m.get('model') or m.get('remote_model') or '')
+            name = str(name).strip()
             if not name:
                 continue
             size_b = m.get('size', 0)
@@ -1210,7 +1252,10 @@ def _interactive_select() -> Dict[str, Any]:
         print(f'  \033[90m正在从 {cfg["ollama_host"]} 获取已安装模型…\033[0m', end='', flush=True)
         fetched = _fetch_ollama_models(cfg['ollama_host'])
         if fetched:
-            print(f'\r\033[K  \033[90m获取到 {len(fetched)} 个已安装模型\033[0m')
+            print(
+                f'\r\033[K  \033[90m从 /api/tags 获取 {len(fetched)} 个模型'
+                f'（列表已完整展示，可用 ↑↓ 逐项选择）\033[0m'
+            )
             ollama_opts: list = fetched
         else:
             print(f'\r\033[K  \033[90m获取失败，使用预设模型列表\033[0m')
@@ -1227,7 +1272,9 @@ def _interactive_select() -> Dict[str, Any]:
                 marked_opts.append((name, detail))
         marked_opts.append(('自定义…', '手动输入模型名'))
 
-        m_idx = _arrow_select('选择 Ollama 模型', marked_opts, default_idx=default_m)
+        m_idx = _arrow_select(
+            '选择 Ollama 模型', marked_opts, default_idx=default_m, viewport=True
+        )
         if m_idx == len(ollama_opts):
             cfg['ollama_model'] = _read_line('  模型名称: ', env_ollama_model)
         else:

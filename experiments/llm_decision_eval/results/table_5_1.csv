@@ -1,0 +1,4 @@
+model_name,JSR_baseline_pct,JSR_proposed_pct,TPA_pct,MCR_baseline_pct,MCR_proposed_pct,ASC
+Qwen2.5-7B-Instruct,46.0,92.0,65.22,65.0,70.0,3.43
+Llama 3.2-3B,78.0,98.0,48.98,65.0,100.0,1.85
+Phi-3.5-mini-Instruct,10.0,72.0,33.33,0.0,60.0,1.33
