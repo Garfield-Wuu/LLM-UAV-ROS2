@@ -1,0 +1,13 @@
+digraph G {
+"PX4" -> "PX4/CameraDepth1_body"[label=" Broadcaster: default_authority\nAverage rate: 31.514\nBuffer length: 4.95\nMost recent transform: 1778854093.669263\nOldest transform: 1778854088.719157\n"];
+"world_ned" -> "PX4"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"PX4" -> "PX4/CameraDepth1_optical"[label=" Broadcaster: default_authority\nAverage rate: 31.514\nBuffer length: 4.95\nMost recent transform: 1778854093.669263\nOldest transform: 1778854088.719157\n"];
+"PX4" -> "PX4/odom_local_ned"[label=" Broadcaster: default_authority\nAverage rate: 36.397\nBuffer length: 4.863\nMost recent transform: 1778854093.645262\nOldest transform: 1778854088.782158\n"];
+"PX4/odom_local_ned" -> "PX4/CameraDepth1_body/static"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"PX4/odom_local_ned" -> "CameraDepth1_optical/static"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"world_ned" -> "world_enu"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1778854101.1693695"[ shape=plaintext ] ;
+}->"world_ned";
+}

@@ -21,6 +21,7 @@ import json
 import math
 import os
 import queue
+import re
 import shutil
 import sys
 import threading
@@ -33,6 +34,28 @@ from typing import Any, Dict, Optional, Tuple
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+
+
+# ── ANSI color / style helpers ────────────────────────────────────────────────
+_RST     = '\033[0m'
+_BOLD    = '\033[1m'
+_DIM     = '\033[90m'
+_RED     = '\033[31m'
+_GREEN   = '\033[32m'
+_YELLOW  = '\033[33m'
+_BLUE    = '\033[34m'
+_MAGENTA = '\033[35m'
+_CYAN    = '\033[36m'
+# readline cursor-position fix: wrap invisible escape sequences
+_RL_S = '\001'
+_RL_E = '\002'
+
+_ROLE_COLORS: Dict[str, str] = {}  # filled after class definition (forward ref avoided)
+
+
+def _wall_time() -> str:
+    """Return current local time as HH:MM:SS — human-readable log prefix."""
+    return time.strftime('%H:%M:%S')
 
 
 # ── Preset model lists for interactive selection ──────────────────────────────
@@ -67,6 +90,16 @@ _TELEMETRY_STALE_SEC = 3.0
 # ── Task primitive alias library ──────────────────────────────────────────────
 # Maps hallucinated / paraphrased action names → canonical action name.
 # Keys are UPPERCASE; matching is case-insensitive in the extractor.
+_ROLE_COLORS.update({
+    'UAV':    _GREEN,
+    'PLAN':   _CYAN,
+    'SAFE':   _YELLOW,
+    'THINK':  _DIM,
+    'STATUS': _BLUE,
+    'HELP':   _DIM,
+    'LLM':    _DIM,
+})
+
 _ACTION_ALIASES: Dict[str, str] = {
     # TAKEOFF variants
     'TAKE_OFF':        'TAKEOFF',
@@ -192,8 +225,21 @@ MOVE_VELOCITY / MOVE_REL 使用机体坐标（相对无人机机头方向）：
   左移/向左  →  vy/dy    负(-)   ← 沿机身左侧飞
   上升/向上  →  vz/dz    负(-) ← 垂直上升（z轴朝下，上升为负！）
   下降/向下  →  vz/dz    正(+)   ← 垂直下降
+  右转/顺时针转 → yaw_rate 正(+) ← 相对当前机头向右转
+  左转/逆时针转 → yaw_rate 负(-) ← 相对当前机头向左转
 altitude 参数（TAKEOFF/GOTO_NED）始终正值，向上为正，无需转换。
 GOTO_NED 的 x/y 是 NED 世界坐标（x=北, y=东），与机头方向无关。
+
+━━━ 用户语言默认解释 ━━━
+  用户自然语言中的“前/后/左/右/左转/右转”默认都是相对当前无人机航向和当前位置。
+  相对平移使用 MOVE_REL，不要用 GOTO_NED。
+    例：“向右飞5米” → {{"action":"MOVE_REL","params":{{"dx":0,"dy":5,"dz":0,"duration":2.5}}}}
+    例：“向前飞10米” → {{"action":"MOVE_REL","params":{{"dx":10,"dy":0,"dz":0,"duration":5.0}}}}
+  相对转向使用 MOVE_VELOCITY 的 yaw_rate + duration，不要用 YAW_TO。
+    例：“向右转90度” → {{"action":"MOVE_VELOCITY","params":{{"vx":0,"vy":0,"vz":0,"yaw_rate":0.6,"duration":2.6}}}}
+    例：“向左转90度” → {{"action":"MOVE_VELOCITY","params":{{"vx":0,"vy":0,"vz":0,"yaw_rate":-0.6,"duration":2.6}}}}
+  只有用户明确说“NED坐标 / world坐标 / 航点 / 飞到x=...y=...”时，才使用 GOTO_NED。
+  只有用户明确说“绝对航向/朝向/heading/航向角=...”时，才使用 YAW_TO。
 
 ━━━ 安全约束 ━━━
   最大飞行高度：{max_altitude} 米  |  最大速度：{max_speed} m/s
@@ -228,13 +274,15 @@ class LLMClient(Node):
         self.declare_parameter('groq_api_key',          '')
         self.declare_parameter('ollama_model',          env_ollama_model)
         self.declare_parameter('ollama_host',           env_ollama_host)
-        self.declare_parameter('max_altitude_m',        120.0)
-        self.declare_parameter('max_speed_ms',          15.0)
+        self.declare_parameter('max_altitude_m',        30.0)
+        self.declare_parameter('max_speed_ms',          3.0)
         self.declare_parameter('stdin_mode',            True)
         self.declare_parameter('verbose',               False)
         self.declare_parameter('auto_takeoff_altitude', 6.0)
         # Groq 通常数秒内返回；远程 Ollama + 大模型（如 30B）+ 长飞控 prompt 常 >20s，易误报 timed out
         self.declare_parameter('llm_timeout_sec',       120.0)
+        # 避障规划模式：True 时 GOTO_NED 经 EGO-Planner 绕障导航，False 时直飞（P 控制器）
+        self.declare_parameter('enable_planner',        False)
 
         p = self.get_parameter
         self._provider     = str(p('llm_provider').value)
@@ -247,13 +295,15 @@ class LLMClient(Node):
         self._verbose      = bool(p('verbose').value)
         self._auto_alt     = float(p('auto_takeoff_altitude').value)
         self._timeout      = float(p('llm_timeout_sec').value)
+        self._enable_planner = bool(p('enable_planner').value)
 
         # ── Apply interactive selection overrides (highest priority) ─────────
         # Priority: interactive selection > ROS params > environment variables
-        self._provider     = cfg.get('provider',     self._provider)
-        self._groq_model   = cfg.get('groq_model',   self._groq_model)
-        self._ollama_model = cfg.get('ollama_model', self._ollama_model)
-        self._ollama_host  = cfg.get('ollama_host',  self._ollama_host)
+        self._provider       = cfg.get('provider',       self._provider)
+        self._groq_model     = cfg.get('groq_model',     self._groq_model)
+        self._ollama_model   = cfg.get('ollama_model',   self._ollama_model)
+        self._ollama_host    = cfg.get('ollama_host',    self._ollama_host)
+        self._enable_planner = cfg.get('enable_planner', self._enable_planner)
 
         # Groq API key: interactive > ROS param > env variable
         api_key_param = str(p('groq_api_key').value)
@@ -275,6 +325,15 @@ class LLMClient(Node):
             max_workers=1, thread_name_prefix='llm_worker',
         )
 
+        # ── TUI state ─────────────────────────────────────────────────────────
+        self._interactive      = sys.stdin.isatty()
+        self._print_lock       = threading.Lock()
+        # Single-round conversation gate: cleared while a round is in progress,
+        # set when the round finishes; stdin_loop waits on it before next input.
+        self._round_done       = threading.Event()
+        self._round_done.set()
+        self._last_prompt_state: str = ''  # tracks last rendered flight_phase|arm
+
         # ── ROS pub/sub ───────────────────────────────────────────────────────
         self._cmd_pub = self.create_publisher(String, '/uav/user_command', 10)
         self.create_subscription(
@@ -294,13 +353,17 @@ class LLMClient(Node):
 
         # ── stdin reader thread + warm-up/welcome banner ─────────────────────
         if self._stdin_mode:
-            t = threading.Thread(target=self._stdin_loop, daemon=True)
-            t.start()
+            # Delay stdin thread start until after warmup/welcome banner so that
+            # the banner is not interleaved with the first input() prompt.
             if self._provider == 'ollama':
-                # 启动后台线程做预热，完成后再打印欢迎 Banner
+                # 启动后台线程做预热；预热完成后打印 banner 并启动 stdin 线程
                 threading.Thread(target=self._warmup_ollama, daemon=True).start()
             else:
                 self._welcome_timer = self.create_timer(0.5, self._print_welcome)
+                # Groq: no warmup, start stdin immediately after banner (0.6s delay)
+                threading.Thread(
+                    target=self._delayed_stdin_start, daemon=True,
+                ).start()
 
         provider_info = (
             f'Groq / {self._groq_model}' if self._provider == 'groq'
@@ -319,6 +382,102 @@ class LLMClient(Node):
                 'GROQ_API_KEY 未设置！请 export GROQ_API_KEY=<key> 或'
                 ' 传入 --ros-args -p groq_api_key:=<key>'
             )
+
+    # ── TUI helpers ──────────────────────────────────────────────────────────
+
+    def _configure_readline(self) -> None:
+        try:
+            import readline
+            readline.set_history_length(200)
+            readline.parse_and_bind('tab: complete')
+        except ImportError:
+            pass
+
+    def _user_prompt_str(self) -> str:
+        """Return the colorful USER prompt string (readline cursor-safe)."""
+        if self._system_online():
+            arm = '武装' if self._is_armed else '未解锁'
+            state = f'uav[{self._flight_phase}|{arm}]'
+        elif self._last_telemetry_time is None:
+            state = 'uav[离线]'
+        else:
+            state = 'uav[离线-中断]'
+        if self._interactive:
+            return (
+                f'{_RL_S}{_BOLD}{_CYAN}{_RL_E}'
+                f'USER  {state} 请输入指令 ›'
+                f'{_RL_S}{_RST}{_RL_E} '
+            )
+        return f'USER  {state} 请输入指令 › '
+
+    def _redraw_prompt(self) -> None:
+        """Re-draw the USER prompt line after async output may have cleared it."""
+        try:
+            import readline
+            buf = readline.get_line_buffer()
+        except Exception:
+            buf = ''
+        sys.stdout.write(f'\r{self._user_prompt_str()}{buf}')
+        sys.stdout.flush()
+
+    def _tui_print(self, role: str, msg: str, *, color: str = '') -> None:
+        """Thread-safe timestamped role-colored print; redraws prompt if idle."""
+        ts = _wall_time()
+        rc = color or _ROLE_COLORS.get(role, '')
+        role_fmt = f'{rc}{role:<7s}{_RST}' if rc else f'{role:<7s}'
+        line = f'{_DIM}{ts}{_RST}  {role_fmt}  {msg}'
+        with self._print_lock:
+            sys.stdout.write(f'\r\033[K{line}\n')
+            sys.stdout.flush()
+            # Redraw prompt only when stdin is interactive and we're between rounds
+            if (self._stdin_mode and self._interactive
+                    and self._warmup_done and self._round_done.is_set()):
+                self._redraw_prompt()
+
+    def _delayed_stdin_start(self) -> None:
+        """Wait for the welcome banner to print, then start the stdin loop."""
+        time.sleep(0.65)
+        self._stdin_loop()
+
+    def _print_help(self) -> None:
+        ts = _wall_time()
+        lines = [
+            f'{_DIM}{ts}{_RST}  {_DIM}HELP   {_RST}  ─────────────────────────────────────',
+            f'        自然语言指令直接输入后回车发送',
+            f'        /help | /?        显示本帮助',
+            f'        /status | /st     当前飞控状态摘要',
+            f'        /clear            清屏',
+            f'        /quit | /exit     退出',
+            f'        !<指令>           前缀 ! 可绕过离线安全门（如: !RTL）',
+            f'        远程发送: ros2 topic pub /uav/nl_input std_msgs/msg/String ...',
+            f'{_DIM}        ─────────────────────────────────────{_RST}',
+        ]
+        with self._print_lock:
+            for l in lines:
+                sys.stdout.write(f'\r\033[K{l}\n')
+            sys.stdout.flush()
+            if self._stdin_mode and self._interactive:
+                self._redraw_prompt()
+
+    def _print_status(self) -> None:
+        ts = _wall_time()
+        online = f'{_GREEN}● 在线{_RST}' if self._system_online() else f'{_RED}○ 离线{_RST}'
+        arm = '武装' if self._is_armed else '未解锁'
+        tele = self._latest_telemetry
+        if tele:
+            pos = tele.get('position') or {}
+            vel = tele.get('velocity') or {}
+            alt = round(-float(pos.get('z', 0)), 1)
+            cmd = tele.get('command', 'IDLE')
+            hdg = tele.get('heading_deg', 0)
+            detail = (
+                f'高度={alt}m  vx={vel.get("vx",0):.1f}'
+                f'  vy={vel.get("vy",0):.1f}  航向={hdg:.0f}°  指令={cmd}'
+            )
+        else:
+            detail = '（尚未收到遥测）'
+        msg = f'{online}  {self._flight_phase}|{arm}  {detail}'
+        self._tui_print('STATUS', msg, color=_BLUE)
 
     # ── ROS subscriptions ─────────────────────────────────────────────────────
 
@@ -351,6 +510,15 @@ class LLMClient(Node):
         else:
             self._flight_phase = 'MOVING'
 
+        # Refresh the input prompt when flight-phase / arming state changes
+        new_state = f'{self._flight_phase}|{self._arming_state}'
+        if new_state != self._last_prompt_state:
+            self._last_prompt_state = new_state
+            if (self._stdin_mode and self._interactive
+                    and self._warmup_done and self._round_done.is_set()):
+                with self._print_lock:
+                    self._redraw_prompt()
+
     def _on_nl_input(self, msg: String) -> None:
         """Accept NL text from ROS topic (programmatic / remote control)."""
         text = msg.data.strip()
@@ -360,16 +528,50 @@ class LLMClient(Node):
     # ── stdin reader (daemon thread) ─────────────────────────────────────────
 
     def _stdin_loop(self) -> None:
+        """Interactive input loop with single-round gating and local commands."""
+        if self._interactive:
+            self._configure_readline()
+
         while True:
+            # Wait for the current round to finish before showing next prompt
+            self._round_done.wait()
+
             try:
-                line = sys.stdin.readline()
-                if not line:  # EOF
-                    break
-                text = line.strip()
-                if text:
-                    self._input_q.put(text)
+                if self._interactive:
+                    line = input(self._user_prompt_str())
+                else:
+                    sys.stdout.write(self._user_prompt_str())
+                    sys.stdout.flush()
+                    raw = sys.stdin.readline()
+                    if not raw:
+                        break
+                    line = raw
             except (EOFError, KeyboardInterrupt):
                 break
+
+            text = line.strip()
+            if not text:
+                continue
+
+            # ── Local commands ────────────────────────────────────────────────
+            low = text.lower()
+            if low in ('/quit', '/exit', 'quit', 'exit'):
+                rclpy.shutdown()
+                break
+            if low in ('/clear', '/cls'):
+                sys.stdout.write('\033[2J\033[H')
+                sys.stdout.flush()
+                continue
+            if low in ('/help', '/?', '/h'):
+                self._print_help()
+                continue
+            if low in ('/status', '/st'):
+                self._print_status()
+                continue
+
+            # ── Gate: block until this round is done ──────────────────────────
+            self._round_done.clear()
+            self._input_q.put(text)
 
     # ── System online detection ───────────────────────────────────────────────
 
@@ -380,31 +582,32 @@ class LLMClient(Node):
         return (time.time() - self._last_telemetry_time) < _TELEMETRY_STALE_SEC
 
     def _prompt(self) -> str:
-        """Return a status-aware input prompt string."""
-        if self._system_online():
-            arm = '武装' if self._is_armed else '解锁'
-            return f'[{self._flight_phase}|{arm}] ▶ '
-        if self._last_telemetry_time is None:
-            return '[离线] ▶ '
-        return '[离线-中断] ▶ '
+        """Legacy compat: return the user prompt string."""
+        return self._user_prompt_str()
 
     def _print_offline_warn(self, action: str = '') -> None:
         """Print a clear offline warning with recovery instructions."""
         action_hint = f'"{action}" ' if action else ''
-        print(f'\r\033[K')
-        print(f'  ⚠  系统离线 — 指令 {action_hint}已被安全层拦截')
         if self._last_telemetry_time is None:
-            print('  原因：从未收到 PX4/AirSim 遥测数据')
+            reason = '从未收到 PX4/AirSim 遥测数据'
         else:
             gap = time.time() - self._last_telemetry_time
-            print(f'  原因：遥测中断 {gap:.0f}s（最后收到：{gap:.0f}s 前）')
-        print('  请确认以下服务已启动：')
-        print('    T1  PX4 SITL         → make px4_sitl_default none_iris')
-        print('    T2  XRCE-DDS Agent  → MicroXRCEAgent ...')
-        print('    T3  AirSim          → 已在 Windows 端运行')
-        print('    T4  ROS 主链        → ros2 launch hw_insight ...')
-        print('  安全动作（RTL / EMERGENCY_STOP / LAND / HOVER）可在离线时强制发送。')
-        print('  如需绕过安全检查，在指令前加 ! 前缀（如: !紧急降落）')
+            reason = f'遥测中断 {gap:.0f}s'
+        self._tui_print('SAFE', f'⚠ 系统离线 — 指令 {action_hint}已被安全层拦截  原因: {reason}',
+                        color=_YELLOW)
+        lines = [
+            '  请确认以下服务已启动:',
+            '    T1  PX4 SITL        → make px4_sitl_default none_iris',
+            '    T2  XRCE-DDS Agent → MicroXRCEAgent ...',
+            '    T3  AirSim         → Windows 端运行',
+            '    T4  ROS 主链       → ros2 launch hw_insight ...',
+            '  安全动作（RTL/EMERGENCY_STOP/LAND/HOVER）可在离线时强制发送',
+            '  如需绕过: 在指令前加 ! 前缀（如: !RTL）',
+        ]
+        with self._print_lock:
+            for l in lines:
+                sys.stdout.write(f'\r\033[K{_DIM}{l}{_RST}\n')
+            sys.stdout.flush()
 
     def _print_welcome(self) -> None:
         """One-shot welcome banner printed after node finishes initialising."""
@@ -412,14 +615,24 @@ class LLMClient(Node):
             f'Groq / {self._groq_model}' if self._provider == 'groq'
             else f'Ollama / {self._ollama_model}'
         )
-        online_str = '● 在线' if self._system_online() else '○ 离线（等待遥测）'
-        print(f'\n{"─"*62}')
-        print(f'  UAV LLM 飞控终端  [{provider_info}]')
-        print(f'  系统状态: {online_str}')
-        print(f'  输入自然语言指令后按回车发送   |   Ctrl+C 退出')
+        online_str = (
+            f'{_GREEN}● 在线{_RST}' if self._system_online()
+            else f'{_YELLOW}○ 离线（等待遥测）{_RST}'
+        )
+        ts = _wall_time()
+        planner_str = (
+            f'{_GREEN}● 避障规划启用{_RST}  (GOTO_NED → EGO-Planner)'
+            if self._enable_planner
+            else f'{_DIM}○ 避障规划关闭{_RST}  (GOTO_NED → 直飞)'
+        )
+        print(f'\n{_CYAN}{"─"*62}{_RST}')
+        print(f'  {_BOLD}UAV LLM 飞控终端{_RST}  [{_CYAN}{provider_info}{_RST}]')
+        print(f'  {_DIM}{ts}{_RST}  系统状态: {online_str}')
+        print(f'  {planner_str}')
+        print(f'  输入自然语言指令后按回车发送  |  Ctrl+C 退出')
+        print(f'  本地命令: /help  /status  /clear  /quit  |  前缀 ! 绕过安全门')
         print(f'  远程话题: ros2 topic pub /uav/nl_input std_msgs/msg/String ...')
-        print(f'{"─"*62}')
-        print(self._prompt(), end='', flush=True)
+        print(f'{_CYAN}{"─"*62}{_RST}')
         if hasattr(self, '_welcome_timer'):
             self._welcome_timer.cancel()
 
@@ -491,6 +704,9 @@ class LLMClient(Node):
 
         self._warmup_done = True
         self._print_welcome()
+        # Start the interactive stdin loop now that warmup and banner are done
+        if self._stdin_mode:
+            threading.Thread(target=self._stdin_loop, daemon=True).start()
 
     # ── Queue drainer (10 Hz ROS timer) ──────────────────────────────────────
 
@@ -506,7 +722,6 @@ class LLMClient(Node):
             return
 
         # ── Force-override prefix: '!' lets experts bypass offline guard ──────
-        # Example: "!紧急降落" or "!EMERGENCY_STOP"
         stripped = text.lstrip()
         force_override = stripped.startswith('!')
         if force_override:
@@ -519,25 +734,22 @@ class LLMClient(Node):
                 parsed = json.loads(stripped)
                 action = str(parsed.get('action', '')).upper()
                 if action in ALLOWED_ACTIONS:
-                    # Offline guard for non-safety JSON commands
                     if (not self._system_online()
                             and action not in SAFETY_PASS_ACTIONS
                             and not force_override):
                         self._print_offline_warn(action)
-                        if self._stdin_mode:
-                            print(self._prompt(), end='', flush=True)
+                        self._round_done.set()
                         return
                     self._publish_cmd(parsed)
+                    self._round_done.set()
                     return
-                # plan passthrough
                 if 'plan' in parsed:
                     if not self._system_online() and not force_override:
                         self._print_offline_warn()
-                        if self._stdin_mode:
-                            print(self._prompt(), end='', flush=True)
+                        self._round_done.set()
                         return
                     self._llm_busy = True
-                    self._executor.submit(self._execute_plan, parsed['plan'])
+                    self._executor.submit(self._execute_plan_and_signal, parsed['plan'])
                     return
             except json.JSONDecodeError:
                 pass
@@ -545,17 +757,27 @@ class LLMClient(Node):
         # ── Natural-language input: offline guard (saves LLM quota) ──────────
         if not self._system_online() and not force_override:
             self._print_offline_warn()
-            if self._stdin_mode:
-                print(self._prompt(), end='', flush=True)
+            self._round_done.set()
             return
 
+        # ── Show "推理中..." and hand off to background thread ───────────────
+        self._tui_print('LLM', 'LLM 推理中…')
         self._llm_busy = True
         self._executor.submit(self._process_nl, text)
+
+    def _execute_plan_and_signal(self, commands: list) -> None:
+        """Wrapper: run plan then signal round done."""
+        try:
+            self._execute_plan(commands)
+        finally:
+            self._llm_busy = False
+            self._round_done.set()
 
     # ── LLM inference pipeline ────────────────────────────────────────────────
 
     def _process_nl(self, text: str) -> None:
         """Runs in thread pool: call LLM, validate, then publish or execute plan."""
+        llm_start = time.time()
         try:
             system, user = self._build_messages(text)
             if self._verbose:
@@ -563,11 +785,12 @@ class LLMClient(Node):
                 self.get_logger().info(f'[PROMPT USR] {user}')
 
             raw = self._call_llm(system, user)
+            elapsed = time.time() - llm_start
+
+            # Update "推理中" line with elapsed time
+            self._tui_print('LLM', f'推理完成  {elapsed:.1f}s')
 
             # ── Extract and persist <think> reasoning blocks ──────────────
-            # DeepSeek-R1, QwQ and similar models embed reasoning in
-            # <think>…</think> tags.  We log them for explainability and
-            # strip them before JSON extraction so the parser never sees them.
             raw, think = self._extract_think(raw)
             if think:
                 self._log_think(text, think)
@@ -578,29 +801,25 @@ class LLMClient(Node):
             # Try plan format first, then single command
             plan = self._extract_plan(raw)
             if plan is not None:
-                self._execute_plan(plan)
+                self._execute_plan(plan, text)
             else:
                 cmd = self._parse_and_validate(raw)
                 if cmd:
+                    cmd = self._apply_relative_language_overrides(text, cmd)
                     self._publish_cmd(cmd)
                 else:
-                    print(f'\r[LLM] 响应解析失败: {raw[:100]}')
-                    if self._stdin_mode:
-                        print(self._prompt(), end='', flush=True)
+                    self._tui_print('LLM', f'响应解析失败: {raw[:100]}', color=_RED)
 
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors='replace')
-            print(f'\r[LLM HTTP {exc.code}] {body[:120]}')
+            self._tui_print('LLM', f'HTTP {exc.code}: {body[:120]}', color=_RED)
             self.get_logger().error(f'LLM HTTP {exc.code}: {body[:200]}')
-            if self._stdin_mode:
-                print(self._prompt(), end='', flush=True)
         except Exception as exc:
-            print(f'\r[LLM 错误] {exc}')
+            self._tui_print('LLM', f'错误: {exc}', color=_RED)
             self.get_logger().error(f'LLM call failed: {exc}')
-            if self._stdin_mode:
-                print(self._prompt(), end='', flush=True)
         finally:
             self._llm_busy = False
+            self._round_done.set()
 
     def _build_messages(self, user_text: str) -> Tuple[str, str]:
         """Construct system prompt with current TELEMETRY context."""
@@ -610,12 +829,12 @@ class LLMClient(Node):
             vel = tele.get('velocity') or {}
             alt_m = round(-float(pos.get('z', 0)), 1)
             tele_block = (
-                f'  位置(NED): x={pos.get("x", 0):.1f}m  '
-                f'y={pos.get("y", 0):.1f}m  高度={alt_m}m\n'
-                f'  速度: vx={vel.get("vx", 0):.1f}  '
-                f'vy={vel.get("vy", 0):.1f}  '
-                f'vz={vel.get("vz", 0):.1f} m/s\n'
-                f'  航向: {tele.get("heading_deg", 0):.0f}°   '
+                f'  位置(NED): x={float(pos.get("x") or 0):.1f}m  '
+                f'y={float(pos.get("y") or 0):.1f}m  高度={alt_m}m\n'
+                f'  速度: vx={float(vel.get("vx") or 0):.1f}  '
+                f'vy={float(vel.get("vy") or 0):.1f}  '
+                f'vz={float(vel.get("vz") or 0):.1f} m/s\n'
+                f'  航向: {float(tele.get("heading_deg") or 0):.0f}°   '
                 f'当前指令: {tele.get("command", "IDLE")}'
             )
         else:
@@ -753,13 +972,18 @@ class LLMClient(Node):
             return
 
         lines      = [l for l in think.splitlines() if l.strip()]
-        first_line = lines[0][:90] + ('…' if len(lines[0]) > 90 else '') if lines else ''
         char_count = len(think)
         line_count = len(lines)
 
-        # ── Terminal: compact one-liner ───────────────────────────────────────
+        # ── Terminal: show up to 3 lines of reasoning ─────────────────────────
         if self._stdin_mode:
-            print(f'\r\033[90m[思考 {char_count}字/{line_count}行] {first_line}\033[0m')
+            header = f'模型思考摘录（{char_count}字/{line_count}行）'
+            self._tui_print('THINK', header)
+            for l in lines[:3]:
+                preview = l[:100] + ('…' if len(l) > 100 else '')
+                self._tui_print('THINK', f'  {preview}')
+            if line_count > 3:
+                self._tui_print('THINK', f'  … 共{line_count}行，完整内容见 ROS 日志')
 
         # ── ROS2 logger: full content (persisted to ~/.ros/log/) ─────────────
         sep = '─' * 56
@@ -939,6 +1163,102 @@ class LLMClient(Node):
 
         return {'action': action, 'params': params}
 
+    @staticmethod
+    def _relative_turn_direction(user_text: str) -> int:
+        text = ''.join(user_text.lower().split())
+        right_terms = ('右转', '向右转', '往右转', '顺时针', '右旋')
+        left_terms = ('左转', '向左转', '往左转', '逆时针', '左旋')
+        wants_right = any(term in text for term in right_terms)
+        wants_left = any(term in text for term in left_terms)
+        if wants_right and not wants_left:
+            return 1
+        if wants_left and not wants_right:
+            return -1
+        return 0
+
+    @staticmethod
+    def _relative_vertical_move(user_text: str) -> Optional[Dict[str, Any]]:
+        """Parse unambiguous relative altitude requests such as "降低3米"."""
+        text = ''.join(user_text.lower().split())
+        if '降落' in text:
+            return None
+
+        down_terms = ('降低', '下降', '向下', '往下', '下移', '下去')
+        up_terms = ('升高', '上升', '向上', '往上', '上移', '拉高')
+        wants_down = any(term in text for term in down_terms)
+        wants_up = any(term in text for term in up_terms)
+        if wants_down == wants_up:
+            return None
+
+        # "下降到3米" usually means an absolute altitude target, not a relative
+        # displacement. Leave those cases to the LLM/GOTO logic.
+        if any(term in text for term in ('到', '至', '为')):
+            return None
+
+        match = re.search(r'(\d+(?:\.\d+)?)\s*(?:米|m)?', text)
+        if not match:
+            return None
+
+        distance_m = max(0.1, float(match.group(1)))
+        dz_ned = distance_m if wants_down else -distance_m
+        duration = max(0.5, distance_m / 1.0)
+        return {
+            'action': 'MOVE_REL',
+            'params': {
+                'dx': 0.0,
+                'dy': 0.0,
+                'dz': round(dz_ned, 2),
+                'duration': round(duration, 2),
+            },
+        }
+
+    def _apply_relative_language_overrides(
+        self,
+        user_text: str,
+        cmd: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Force clear natural-language relative motions to deterministic commands.
+
+        The protocol keeps YAW_TO for explicit absolute headings. If a model
+        still maps "右转90度" to YAW_TO, convert it to a timed yaw-rate command
+        so operator language remains relative to the current heading. Likewise,
+        vertical relative distance requests must keep NED sign conventions.
+        """
+        vertical_move = self._relative_vertical_move(user_text)
+        if vertical_move is not None:
+            self.get_logger().info(
+                f'相对高度兜底：{cmd} -> {vertical_move}（user="{user_text}"）'
+            )
+            return vertical_move
+
+        action = str(cmd.get('action', '')).upper()
+        if action != 'YAW_TO':
+            return cmd
+
+        direction = self._relative_turn_direction(user_text)
+        if direction == 0:
+            return cmd
+
+        params = dict(cmd.get('params', {}))
+        angle_deg = abs(float(params.get('angle', 90.0)))
+        angle_deg = max(1.0, min(360.0, angle_deg))
+        yaw_rate = 0.6 * direction
+        duration = max(0.5, math.radians(angle_deg) / abs(yaw_rate))
+        converted = {
+            'action': 'MOVE_VELOCITY',
+            'params': {
+                'vx': 0.0,
+                'vy': 0.0,
+                'vz': 0.0,
+                'yaw_rate': yaw_rate,
+                'duration': round(duration, 2),
+            },
+        }
+        self.get_logger().info(
+            f'相对转向兜底：{cmd} -> {converted}（user="{user_text}"）'
+        )
+        return converted
+
     # ── Publish ───────────────────────────────────────────────────────────────
 
     def _publish_cmd(self, cmd: Dict[str, Any]) -> None:
@@ -946,18 +1266,14 @@ class LLMClient(Node):
         params = cmd.get('params', {})
         # Final safety gate: block non-safety commands when system is offline
         if not self._system_online() and action not in SAFETY_PASS_ACTIONS:
-            print(f'\r\033[K  ⚠  安全门拦截：系统离线，{action} 未发送')
+            self._tui_print('SAFE', f'⚠ 安全门拦截：系统离线，{action} 未发送', color=_YELLOW)
             self.get_logger().warn(f'Blocked offline command: {action}')
-            if self._stdin_mode:
-                print(self._prompt(), end='', flush=True)
             return
         msg = String()
         msg.data = json.dumps(cmd, ensure_ascii=False)
         self._cmd_pub.publish(msg)
-        print(f'\r[→ UAV] {action:<16s} {params}')
-        if self._stdin_mode:
-            print(self._prompt(), end='', flush=True)
-        self.get_logger().info(f'Published → {action}  {params}')
+        self._tui_print('UAV', f'{_BOLD}{action:<16s}{_RST} {params}')
+        self.get_logger().debug(f'Published → {action}  {params}')
 
     # ── Sequential plan execution ─────────────────────────────────────────────
 
@@ -999,27 +1315,33 @@ class LLMClient(Node):
 
         # Event-based (GOTO_NED, YAW_TO, ORBIT without duration):
         # watch TELEMETRY until command transitions back to IDLE/HOVER
-        timeout = 30.0
+        # 避障规划模式下 GOTO_NED 经 EGO-Planner 绕障，通常耗时更长，超时放宽到 90s。
+        # 规划器完成（PLANNER_GOTO → HOVER）或直飞完成（GOTO_NED → HOVER）均返回。
+        if action == 'GOTO_NED' and self._enable_planner:
+            timeout = 90.0
+            done_cmds = ('IDLE', 'HOVER', 'PLANNER_DONE')
+        else:
+            timeout = 30.0
+            done_cmds = ('IDLE', 'HOVER')
         deadline = time.time() + timeout
         time.sleep(0.5)  # let text_command_bridge register the new command
         while time.time() < deadline:
             tele = self._latest_telemetry
-            if tele and tele.get('command', '') in ('IDLE', 'HOVER'):
+            if tele and tele.get('command', '') in done_cmds:
                 return
             time.sleep(0.3)
 
-    def _execute_plan(self, commands: list) -> None:
+    def _execute_plan(self, commands: list, user_text: str = '') -> None:
         """Run in thread pool: publish each command and wait for completion."""
         total = len(commands)
         for i, cmd in enumerate(commands, 1):
             validated = self._parse_and_validate_single(cmd)
             if not validated:
-                print(f'\r[计划] 第{i}/{total}步校验失败，跳过: {cmd}')
+                self._tui_print('PLAN', f'第{i}/{total}步校验失败，跳过: {cmd}', color=_YELLOW)
                 continue
+            validated = self._apply_relative_language_overrides(user_text, validated)
             action = validated.get('action', '?')
-            print(f'\r[计划 {i}/{total}] {action}  {validated.get("params", {})}')
-            if self._stdin_mode:
-                print(self._prompt(), end='', flush=True)
+            self._tui_print('PLAN', f'{i}/{total}  {_BOLD}{action}{_RST}  {validated.get("params", {})}')
             self._publish_cmd(validated)
             if i < total:  # no wait after last step
                 self._wait_command_done(action, validated.get('params', {}))
@@ -1280,6 +1602,16 @@ def _interactive_select() -> Dict[str, Any]:
         else:
             cfg['ollama_model'] = ollama_opts[m_idx][0]
 
+    # ── 避障规划模式选择 ──────────────────────────────────────────────────────
+    print()
+    planner_opts = [
+        ('关闭（直接速度控制）', 'GOTO/飞往 → P 控制器直飞，速度快，无绕障'),
+        ('启用（EGO-Planner）',  'GOTO/飞往 → 规划器绕障导航，需已启动规划节点'),
+    ]
+    planner_default = 1 if any('enable_planner' in a for a in sys.argv) else 0
+    p_idx = _arrow_select('避障规划模式', planner_opts, default_idx=planner_default)
+    cfg['enable_planner'] = (p_idx == 1)
+
     # ── Summary ───────────────────────────────────────────────────────────────
     print(f'  \033[90m─────────────────────────────\033[0m')
     print(f'  后端   {cfg["provider"].upper()}')
@@ -1289,6 +1621,8 @@ def _interactive_select() -> Dict[str, Any]:
     else:
         print(f'  主机   {cfg.get("ollama_host", "?")}')
         print(f'  模型   {cfg.get("ollama_model", "?")}')
+    planner_label = '✓ 启用（EGO-Planner）' if cfg.get('enable_planner') else '○ 关闭（直飞）'
+    print(f'  规划   {planner_label}')
     print(f'  \033[90m─────────────────────────────\033[0m\n')
 
     return cfg

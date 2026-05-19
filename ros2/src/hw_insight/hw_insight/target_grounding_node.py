@@ -145,6 +145,11 @@ class TargetGroundingNode(Node):
 
         detections: List[Dict] = payload.get('detections', [])
         if not detections:
+            self.get_logger().info(
+                f'Empty detections for prompt="{payload.get("prompt", "")}" '
+                f'(score_thr in detector JSON); not publishing '
+                f'{self._cam_targets_topic} — lower score_thr or simplify prompt'
+            )
             return
 
         with self._depth_lock:

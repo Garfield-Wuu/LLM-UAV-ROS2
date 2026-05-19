@@ -9,9 +9,11 @@
 
 判定依据：
 
-- `PRD_text_command_flight_mvp.md`
+- `PRD_text_command_flight_mvp.md`（**§9** 主流程与 **T_YOLO**）
 - `COMMAND_PROTOCOL.md`
 - `README_text_command_test.md`
+- `docs/yolo_world_airsim_online_test.md`（视觉链终端与 RViz）
+- `docs/DOCUMENTATION_INDEX.md`（文档分工，避免重复维护）
 
 ## 2. 完成度矩阵
 
@@ -31,7 +33,8 @@
 | `/uav/target_goal` 目标发布 | 目标架构 | ✅ 已实现 | `semantic_target_tf_node.py` / `semantic_goal_to_planner.py` |
 | LLM → 视觉搜索 → 自动飞行（FIND_AND_GOTO）| 目标架构 | ✅ 已实现 | `llm_client.py` + `text_command_bridge.py` S11 |
 | VINS 状态估计 | 目标架构 | 📋 待接入 | 当前 world pose 先使用 AirSim `odom_local_ned` |
-| Ego / Fast Planner | 目标架构 | ⚠️ 仿真部分接入 | `planner_integration.launch.py` / `ego_planner_integration.launch.py` |
+| Ego-Planner 仿真避障链 | 目标架构 | ⚠️ 仿真部分接入 | `uav_sim.launch.py`（推荐）/ `planner_integration.launch.py` / `ego_planner_integration.launch.py`；`planner_velocity_bridge` ENU→NED |
+| 统一仿真 launch（飞控 + 可选 EGO） | 当前主链 | ✅ 已具备 | `launch/uav_sim.launch.py`（`enable_ego_planner`、`use_rviz`） |
 | MAVROS 2 桥接主链 | 目标架构 | ❌ 未实现 | 当前主链为 `px4_msgs + uXRCE-DDS` |
 
 ## 2.1 历史测试项留痕
@@ -54,7 +57,10 @@
 1. AirSim（Windows Unreal Engine）
 2. PX4 SITL（`none_iris`）
 3. XRCE Agent（`MicroXRCEAgent udp4 -p 8888`）
-4. ROS 主链（`ros2 launch hw_insight text_command_test.launch.py`）
+4. ROS 主链（**三选一，勿重复起 AirSim / move_velocity**）
+   - 仅手飞/LLM：`text_command_test.launch.py`
+   - **仿真 + 避障规划（推荐）**：`uav_sim.launch.py enable_ego_planner:=true`
+   - 历史组合：`planner_integration.launch.py`
 5. 语义感知链（可选叠加，`ros2 launch hw_insight semantic_perception.launch.py`）
 6. LLM 终端（`ros2 run hw_insight llm_client ...`）
 7. TUI（可选）
@@ -107,7 +113,8 @@
 
 ### Stage G：语义感知链冒烟测试
 
-- [ ] 启动 `semantic_perception.launch.py`
+- [ ] 启动 `semantic_perception.launch.py`（默认 **`inference_mode=on_query`**：启动后**不会**持续跑 GPU；需发 `/uav/target_query` 才推理）
+- [ ] 另开终端：`ros2 topic pub --once /uav/target_query std_msgs/msg/String "data: car"`（或 `"data: 'person'"`），日志出现推理与 JSON 输出
 - [ ] `yolo_world_detector` 正常订阅 RGB，并向 `/uav/detections_2d` 发布 JSON（GPU 模式，日志无 CPU fallback）
 - [ ] `target_grounding_node` 能基于深度图输出 `/uav/semantic_targets_camera`
 - [ ] `semantic_target_tf_node` 能输出 `/uav/semantic_targets_world`
@@ -119,6 +126,9 @@
 - [ ] `/uav/target_goal` 只有一个节点在发布，避免 `semantic_target_tf_node` 与 `semantic_goal_to_planner` 双写
 - [ ] 在 planner 模式下，目标点更新后轨迹生成链路无报错
 - [ ] LLM / 手动动作链与 planner 模式不存在互相抢占
+- [ ] 使用 `uav_sim.launch.py enable_ego_planner:=true` 时：先发 `TAKEOFF` JSON，确认 `nav_state` 为 Offboard（见 TELEMETRY），再设目标或 RViz 2D Goal
+- [ ] RViz 设点后 `text_command_bridge` 日志出现 **`[PLANNER] 外部目标点到达`**（`planner_mode_for_goto` 下订阅 `/uav/target_goal`，避免 bridge hover 压住规划速度）
+- [ ] `/uav/planner_cmd_vel_stamped` 与飞机运动方向一致（`planner_velocity_bridge` 已将 EGO **ENU** 线速度转为 PX4 **NED**）
 
 ### Stage I：FIND_AND_GOTO 端到端视觉任务测试
 
@@ -158,7 +168,7 @@
 - VINS-Fusion 位姿接入后的稳定性验证
 - 复杂属性 prompt 的泛化精度系统验证（不同场景、目标遮挡、距离变化下的稳定性）
 - VINS 漂移评估
-- Ego-Planner / Fast-Planner 动态避障验证（当前 FIND_AND_GOTO 为直线 GOTO_NED，未走 planner 避障）
+- Ego-Planner 在复杂动态障碍下的系统级验收（当前仿真已可演示局部避障；FIND_AND_GOTO 仍多为直线 GOTO_NED，与 planner 深度联动待产品化）
 - 多目标同时出现时 FIND_AND_GOTO 的目标选择策略优化
 
 说明：
@@ -169,10 +179,15 @@
 ## 7. 常用命令
 
 ```bash
-# 主链
+# 主链（无 EGO-Planner）
 cd /home/hw/hw-ros2/ros2
+source /opt/ros/humble/setup.bash
 source install/setup.bash
+export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
 ros2 launch hw_insight text_command_test.launch.py
+
+# 仿真 + 可选 EGO-Planner（与上一命令二选一）
+ros2 launch hw_insight uav_sim.launch.py enable_ego_planner:=true use_rviz:=true
 
 # 本地 LLM
 ros2 run hw_insight llm_client \
@@ -184,8 +199,10 @@ ros2 run hw_insight gcs_dashboard --ros-args -p refresh_rate_hz:=4.0
 # 一键回归
 ros2 run hw_insight flight_regression_runner
 
-# 语义感知链（GPU 推理，需与主链同时运行）
+# 语义感知链（GPU 推理，需与主链同时运行；默认 on_query）
 ros2 launch hw_insight semantic_perception.launch.py
+# 触发一次检测（与 PRD §9、yolo_world_airsim_online_test.md 一致）
+ros2 topic pub --once /uav/target_query std_msgs/msg/String "data: car"
 ```
 
 ## 8. 下一阶段建议测试入口
@@ -196,5 +213,5 @@ ros2 launch hw_insight semantic_perception.launch.py
 2. 目标运动时 GOTO_NED 的跟踪响应验证（当前为单次触发）
 3. 深度图读数有效性与时间戳对齐验证
 4. `/uav/semantic_targets_world` 稳定性验证（无人机运动时 world 点是否跳变）
-5. EGO-Planner 与 FIND_AND_GOTO 联动（将 GOTO_NED 替换为 planner 路径规划）
+5. EGO-Planner 与 FIND_AND_GOTO 联动（语义发现目标后稳定走 `/uav/target_goal` + planner 模式，避免与直线 GOTO 语义混淆）
 6. VINS-Fusion 接入后 world frame 精度提升验证

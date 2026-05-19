@@ -115,6 +115,14 @@ class TextCommandBridge(Node):
             String, '/uav/semantic_targets_world',
             self._on_semantic_targets_world, 10,
         )
+        # 当 planner_mode_for_goto=True 时，监听 target_goal_topic：
+        # 任何来源（RViz 2D Goal Pose / 命令行 topic pub）发来的目标都自动激活规划模式，
+        # 让 text_command_bridge 停止发 hover，把 keyboard_velocity 控制权交给规划器。
+        if self.planner_mode_for_goto:
+            self.create_subscription(
+                PoseStamped, self.target_goal_topic,
+                self._on_external_target_goal, 10,
+            )
         self.create_subscription(
             VehicleLocalPosition, '/fmu/out/vehicle_local_position',
             self.vehicle_local_position_callback, qos_profile,
@@ -742,6 +750,23 @@ class TextCommandBridge(Node):
 
     # ─────────────────────── Visual semantic search callback ─────────────────
 
+    def _on_external_target_goal(self, msg: PoseStamped) -> None:
+        """外部（如 RViz 2D Goal Pose）发来的目标点，自动激活规划模式。
+
+        当 planner_mode_for_goto=True 时，任何来源写入 target_goal_topic 的
+        PoseStamped 都会使 text_command_bridge 停止发送 hover 指令，将
+        keyboard_velocity 控制权交给 planner_velocity_bridge。
+        """
+        if not self.planner_mode_for_goto:
+            return
+        if not self.planner_control_active:
+            self.get_logger().info(
+                f'[PLANNER] 外部目标点到达 '
+                f'({msg.pose.position.x:.2f}, {msg.pose.position.y:.2f}, '
+                f'{msg.pose.position.z:.2f})，自动激活规划模式'
+            )
+            self.planner_control_active = True
+
     def _on_semantic_targets_world(self, msg: String) -> None:
         """Handle detections from semantic_target_tf_node.
 
@@ -899,10 +924,11 @@ class TextCommandBridge(Node):
     def _publish_target_goal(self, x_north: float, y_east: float, altitude: float) -> None:
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = 'map'
-        msg.pose.position.x = float(x_north)
-        msg.pose.position.y = float(y_east)
-        msg.pose.position.z = float(altitude)
+        # EGO-Planner 使用 ENU 'world' 帧；NED (x=North, y=East) → ENU (x=East, y=North)
+        msg.header.frame_id = 'world'
+        msg.pose.position.x = float(y_east)    # ENU East  = NED y (East)
+        msg.pose.position.y = float(x_north)   # ENU North = NED x (North)
+        msg.pose.position.z = float(altitude)  # ENU Up    = 海拔高度 (meters)
         msg.pose.orientation.w = 1.0
         self.target_goal_pub.publish(msg)
 

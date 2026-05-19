@@ -76,9 +76,12 @@ class PlannerVelocityBridge(Node):
 
     def _store_cmd(self, twist: Twist) -> None:
         cmd = HWSimpleKeyboardInfo()
-        cmd.x = self._clamp(twist.linear.x, -self.max_vx, self.max_vx)
-        cmd.y = self._clamp(twist.linear.y, -self.max_vy, self.max_vy)
-        cmd.z = self._clamp(twist.linear.z, -self.max_vz, self.max_vz)
+        # EGO-Planner 在 ENU world 帧输出速度：x=East, y=North, z=Up
+        # HWSimpleKeyboardInfo / PX4 TrajectorySetpoint 使用 NED：x=North, y=East, z=Down
+        # 转换：NED_x = ENU_y,  NED_y = ENU_x,  NED_z = -ENU_z
+        cmd.x = self._clamp( twist.linear.y, -self.max_vx, self.max_vx)   # North ← ENU y
+        cmd.y = self._clamp( twist.linear.x, -self.max_vy, self.max_vy)   # East  ← ENU x
+        cmd.z = self._clamp(-twist.linear.z, -self.max_vz, self.max_vz)   # Down  ← -ENU z
         cmd.yaw = self._clamp(twist.angular.z, -self.max_yaw_rate, self.max_yaw_rate)
         self.last_cmd = cmd
         self.last_cmd_ns = self.get_clock().now().nanoseconds

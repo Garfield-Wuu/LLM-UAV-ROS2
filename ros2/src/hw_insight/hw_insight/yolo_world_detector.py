@@ -25,7 +25,11 @@ Parameters
   texts                     (str)   default "red car"   (static prompt fallback)
   score_thr                 (float) default 0.25
   max_dets                  (int)   default 20
-  min_inference_interval_sec(float) default 0.5  – rate-limit on GPU
+  min_inference_interval_sec(float) default 0.5  – rate-limit on GPU（仅 continuous）
+  inference_mode            (str)   default "continuous" | "on_query"
+                                      continuous: 有新帧且满足间隔则持续推理
+                                      on_query: 仅在收到 prompt_topic 新消息时
+                                      对当前缓存帧推理一次（不按间隔轮询）
   yolo_world_root           (str)   default /home/hw/YOLO-World
   config_path               (str)   relative or absolute path to mmdet config
   weights_path              (str)   relative or absolute path to checkpoint
@@ -45,7 +49,12 @@ from typing import List, Optional, Tuple
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
@@ -58,6 +67,15 @@ _DEFAULT_CONFIG = (
 _DEFAULT_WEIGHTS = 'weights/yolo_world_v2_s_stage1.pth'
 _DEFAULT_PROMPT = 'red car'
 _DEFAULT_YOLO_ROOT = '/home/hw/YOLO-World'
+
+# airsim_ros publishes Scene/Depth as RELIABLE; BEST_EFFORT subscribers may not
+# match on some RMW stacks, so RGB uses RELIABLE to mirror RViz / airsim_node.
+_QOS_RGB_AIRSIM = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE,
+    history=HistoryPolicy.KEEP_LAST,
+    durability=DurabilityPolicy.VOLATILE,
+)
 
 
 def _parse_labels(raw: str) -> List[str]:
@@ -81,10 +99,13 @@ class YoloWorldDetector(Node):
         self.declare_parameter('score_thr', 0.25)
         self.declare_parameter('max_dets', 20)
         self.declare_parameter('min_inference_interval_sec', 0.5)
+        self.declare_parameter('inference_mode', 'continuous')
         self.declare_parameter('yolo_world_root', _DEFAULT_YOLO_ROOT)
         self.declare_parameter('config_path', _DEFAULT_CONFIG)
         self.declare_parameter('weights_path', _DEFAULT_WEIGHTS)
         self.declare_parameter('work_dir', '/tmp/hw_insight_yolo_world')
+        # 'auto' | 'cuda:0' | 'cpu'  — 'auto' 会在 CUDA NMS 失败时自动降级到 CPU
+        self.declare_parameter('device', 'auto')
 
         p = self.get_parameter
         self._rgb_topic = str(p('rgb_topic').value)
@@ -94,14 +115,17 @@ class YoloWorldDetector(Node):
         self._score_thr = float(p('score_thr').value)
         self._max_dets = int(p('max_dets').value)
         self._min_interval = float(p('min_inference_interval_sec').value)
+        _mode = str(p('inference_mode').value).strip().lower().replace('-', '_')
+        self._inference_mode = 'on_query' if _mode in ('on_query', 'once') else 'continuous'
         self._yolo_root = str(p('yolo_world_root').value)
         self._config_path = str(p('config_path').value)
         self._weights_path = str(p('weights_path').value)
         self._work_dir = str(p('work_dir').value)
+        self._device_param = str(p('device').value).strip().lower()
 
         self._det_pub = self.create_publisher(String, self._det_topic, 10)
         self.create_subscription(
-            Image, self._rgb_topic, self._on_image, qos_profile_sensor_data,
+            Image, self._rgb_topic, self._on_image, _QOS_RGB_AIRSIM,
         )
         self.create_subscription(
             String, self._prompt_topic, self._on_prompt, 10,
@@ -115,6 +139,7 @@ class YoloWorldDetector(Node):
         self._last_inferred_counter = -1
         self._last_publish_time = 0.0
         self._inference_active = False
+        self._trigger_pending = False
 
         self._cv2 = None
         self._torch = None
@@ -128,7 +153,9 @@ class YoloWorldDetector(Node):
             f'YoloWorldDetector ready | rgb={self._rgb_topic} '
             f'prompt_topic={self._prompt_topic} '
             f'out={self._det_topic} '
-            f'texts="{self._prompt}"'
+            f'texts="{self._prompt}" '
+            f'inference_mode={self._inference_mode} '
+            f'device={getattr(self, "_device", "?")}'
         )
 
     # ──────────────────────────────── model init ─────────────────────────────
@@ -143,24 +170,40 @@ class YoloWorldDetector(Node):
             import torch  # noqa: PLC0415
             from mmengine.config import Config  # noqa: PLC0415
             from mmengine.dataset import Compose  # noqa: PLC0415
-            from mmdet.apis import init_detector  # noqa: PLC0415
-            from mmdet.utils import get_test_pipeline_cfg  # noqa: PLC0415
 
-            config_abs = (
-                self._config_path if osp.isabs(self._config_path)
-                else osp.join(root, self._config_path)
-            )
-            weights_abs = (
-                self._weights_path if osp.isabs(self._weights_path)
-                else osp.join(root, self._weights_path)
-            )
+            # mmdet 3.0.0 和 mmyolo (third_party) 都在 __init__ 中 assert mmcv < 2.1.0。
+            # 但 mmcv 2.2.x 才能针对 torch 2.11 成功编译。
+            # 解决方案：在整个 import + Config.fromfile 阶段，临时把 mmcv 版本号
+            # 伪装成 2.0.1（满足两处检查），之后恢复原值。API 层面完全兼容。
+            import mmcv as _mmcv_pkg  # noqa: PLC0415
+            _real_ver = _mmcv_pkg.__version__
+            _mmcv_pkg.__version__ = '2.0.1'
+            try:
+                from mmdet.apis import init_detector  # noqa: PLC0415
+                from mmdet.utils import get_test_pipeline_cfg  # noqa: PLC0415
 
-            for label, path in [('config', config_abs), ('weights', weights_abs)]:
-                if not osp.exists(path):
-                    raise FileNotFoundError(f'{label} not found: {path}')
+                config_abs = (
+                    self._config_path if osp.isabs(self._config_path)
+                    else osp.join(root, self._config_path)
+                )
+                weights_abs = (
+                    self._weights_path if osp.isabs(self._weights_path)
+                    else osp.join(root, self._weights_path)
+                )
 
-            os.makedirs(self._work_dir, exist_ok=True)
-            cfg = Config.fromfile(config_abs)
+                for label, path in [('config', config_abs), ('weights', weights_abs)]:
+                    if not osp.exists(path):
+                        raise FileNotFoundError(f'{label} not found: {path}')
+
+                os.makedirs(self._work_dir, exist_ok=True)
+                # Config.fromfile 会触发 custom_imports=['yolo_world']，进而 import
+                # mmyolo。mmyolo.__init__ 也有相同的 mmcv < 2.1.0 断言，因此必须
+                # 在版本伪装期间完成该调用。
+                cfg = Config.fromfile(config_abs)
+
+            finally:
+                _mmcv_pkg.__version__ = _real_ver  # 恢复真实版本号
+
             cfg.work_dir = self._work_dir
             cfg.load_from = weights_abs
 
@@ -168,17 +211,73 @@ class YoloWorldDetector(Node):
             if osp.exists(local_clip):
                 cfg.model.backbone.text_model.model_name = local_clip
 
-            device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-            model = init_detector(cfg, checkpoint=weights_abs, device=device, palette='coco')
-            pipeline = Compose(get_test_pipeline_cfg(cfg=cfg))
+            device = self._resolve_device(torch)
+            model, pipeline, device = self._init_model_with_fallback(
+                cfg, weights_abs, device, torch, Compose, get_test_pipeline_cfg,
+            )
 
             self._cv2 = cv2
             self._torch = torch
             self._model = model
             self._pipeline = pipeline
+            self._device = device
             self.get_logger().info(f'YOLO-World model loaded on {device.upper()}')
         except Exception as exc:
             self.get_logger().error(f'Model init failed: {exc}')
+
+    def _resolve_device(self, torch) -> str:
+        if self._device_param in ('cuda', 'cuda:0'):
+            return 'cuda:0'
+        if self._device_param == 'cpu':
+            return 'cpu'
+        # 'auto': prefer CUDA but allow fallback
+        return 'cuda:0' if torch.cuda.is_available() else 'cpu'
+
+    def _init_model_with_fallback(self, cfg, weights_abs, device, torch, Compose, get_test_pipeline_cfg):
+        """Load model; if CUDA NMS fails, auto-downgrade to CPU."""
+        from mmdet.apis import init_detector  # noqa: PLC0415
+
+        def _build(dev):
+            m = init_detector(cfg, checkpoint=weights_abs, device=dev, palette='coco')
+            p = Compose(get_test_pipeline_cfg(cfg=cfg))
+            return m, p
+
+        model, pipeline = _build(device)
+
+        if device == 'cpu':
+            return model, pipeline, device
+
+        # Smoke-test NMS on a tiny dummy batch to catch 'nms_impl not found' early.
+        try:
+            import tempfile, cv2 as _cv2  # noqa: PLC0415
+            dummy = np.zeros((64, 64, 3), dtype=np.uint8)
+            fd, tmp = tempfile.mkstemp(suffix='.jpg', prefix='yw_smoke_')
+            import os as _os; _os.close(fd)
+            _cv2.imwrite(tmp, dummy)
+            texts_dummy = [['person'], [' ']]
+            di = dict(img_id=0, img_path=tmp, texts=texts_dummy)
+            di = pipeline(di)
+            batch = dict(inputs=di['inputs'].unsqueeze(0), data_samples=[di['data_samples']])
+            with torch.no_grad():
+                model.test_step(batch)
+            try:
+                _os.remove(tmp)
+            except OSError:
+                pass
+        except Exception as e:
+            msg = str(e)
+            if 'nms_impl' in msg or 'not found' in msg.lower():
+                self.get_logger().warn(
+                    f'CUDA NMS unavailable ({msg}). '
+                    f'mmcv built without CUDA ops — falling back to CPU. '
+                    f'To fix permanently: reinstall mmcv with CUDA support.'
+                )
+                model, pipeline = _build('cpu')
+                device = 'cpu'
+            else:
+                raise
+
+        return model, pipeline, device
 
     def _ensure_sys_path(self, root: str) -> None:
         for candidate in [root, osp.join(root, 'third_party', 'mmyolo')]:
@@ -191,7 +290,14 @@ class YoloWorldDetector(Node):
         prompt = msg.data.strip()
         if prompt:
             self._prompt = prompt
-            self.get_logger().info(f'Prompt updated: "{prompt}"')
+            if self._inference_mode == 'on_query':
+                self._trigger_pending = True
+                self.get_logger().info(
+                    f'Prompt updated: "{prompt}" (on_query: will infer once RGB is '
+                    f'available on {self._rgb_topic})'
+                )
+            else:
+                self.get_logger().info(f'Prompt updated: "{prompt}"')
 
     def _on_image(self, msg: Image) -> None:
         try:
@@ -212,15 +318,24 @@ class YoloWorldDetector(Node):
             return
         if self._inference_active:
             return
-        now = time.monotonic()
-        if now - self._last_publish_time < self._min_interval:
-            return
-        with self._frame_lock:
-            if (
-                self._latest_bgr is None
-                or self._frame_counter == self._last_inferred_counter
-            ):
+
+        on_query = self._inference_mode == 'on_query'
+        if not on_query:
+            now = time.monotonic()
+            if now - self._last_publish_time < self._min_interval:
                 return
+
+        with self._frame_lock:
+            if self._latest_bgr is None:
+                return
+            if on_query:
+                if not self._trigger_pending:
+                    return
+                # 消费一次触发：每条 target_query 对应一次推理（失败不重试，需再发）
+                self._trigger_pending = False
+            else:
+                if self._frame_counter == self._last_inferred_counter:
+                    return
             bgr = self._latest_bgr.copy()
             stamp = self._latest_stamp
             frame_id = self._latest_frame_id

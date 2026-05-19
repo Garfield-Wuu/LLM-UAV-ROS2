@@ -30,7 +30,7 @@
 | 飞控 | PX4 SITL (`none_iris`) | ✅ 运行中 |
 | 中间件 | ROS 2 Humble + uXRCE-DDS | ✅ 运行中 |
 | 任务理解 | LLM（Groq API / Ollama 双后端） | ✅ 已接入 |
-| 飞行执行 | 11 个动作协议 + PX4 Offboard | ✅ 已接入 |
+| 飞行执行 | 12 个动作协议（含 `FIND_AND_GOTO`）+ PX4 Offboard | ✅ 已接入 |
 | 局部规划 | EGO-Planner（仿真最小闭环） | ⚠️ 部分接入 |
 | 视觉识别 | YOLO-World（open-vocabulary） | ✅ ROS 2 实时检测节点已完成 |
 | 几何 Grounding | AirSim DepthPlanar + 中位数深度逆投影 | ✅ camera frame 3D grounding 节点已完成 |
@@ -57,7 +57,7 @@ hw-ros2/                                      ← 本仓库根目录
         ├── hw_insight/                       # ★ 核心自研包
         │   ├── hw_insight/                   # Python 节点
         │   │   ├── llm_client.py             #   LLM 推理（Groq / Ollama 双后端）
-        │   │   ├── text_command_bridge.py    #   指令解析 + 11 个动作分发
+        │   │   ├── text_command_bridge.py    #   指令解析 + 12 个动作分发
         │   │   ├── move_velocity.py          #   PX4 Offboard 执行器
         │   │   ├── gcs_dashboard.py          #   地面站 TUI（4Hz）
         │   │   ├── flight_regression_runner.py  # 闭环回归测试
@@ -75,7 +75,10 @@ hw-ros2/                                      ← 本仓库根目录
         │   │   └── gcs_dashboard.launch.py
         │   ├── config/mapping_config.yaml    # 话题与坐标帧映射说明
         │   ├── rviz/ego_planner_debug.rviz   # RViz 调试配置
-        │   ├── docs/                         # 集成文档与排障日志
+        │   ├── docs/                         # 集成文档、YOLO 联调手册、文档地图
+        │   │   ├── DOCUMENTATION_INDEX.md    #   四份主文档分工与单一事实源
+        │   │   ├── yolo_world_airsim_online_test.md
+        │   │   └── …                         #   另含白皮书、审计报告、EGO 可行性、integration_log 等
         │   ├── COMMAND_PROTOCOL.md           # 指令协议规范
         │   ├── PRD_text_command_flight_mvp.md
         │   ├── README_text_command_test.md
@@ -282,26 +285,29 @@ ros2 run hw_insight gcs_dashboard --ros-args -p refresh_rate_hz:=4.0
 
 ### 4.5 启动语义感知链（Phase 2 视觉闭环）
 
-在 T1-T4 已运行的基础上，额外开一个终端：
+在 T1-T4（或已用 `uav_sim.launch.py` 拉起相机与飞控）已运行的基础上，额外开一个终端：
 
 ```bash
-# T7：语义感知链（YOLO-World 检测 + 深度 Grounding + World TF + RViz Marker）
+# T7：语义感知链（YOLO-World 检测 + 深度 Grounding + World TF；默认 on_query + 默认不发 /uav/target_goal）
 cd ~/hw-ros2/ros2
 source /opt/ros/humble/setup.bash && source install/setup.bash
 export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
-ros2 launch hw_insight semantic_perception.launch.py texts:="red car"
+ros2 launch hw_insight semantic_perception.launch.py
 
-# 自定义参数示例
+# 自定义参数示例（continuous / 发规划目标等见 PRD §9 与联调手册）
 ros2 launch hw_insight semantic_perception.launch.py \
     texts:="person,car,truck" \
     publish_target_goal:=false \
     score_thr:=0.3
 ```
 
-**手动发布 prompt 测试**（不依赖 LLM）：
+**手动发布 prompt 测试**（不依赖 LLM；默认 **on_query** 下每条非空 query 触发一次推理）：
+
 ```bash
-ros2 topic pub --once /uav/target_query std_msgs/msg/String "{data: 'red car'}"
+ros2 topic pub --once /uav/target_query std_msgs/msg/String "data: car"
 ```
+
+更完整的命令、RViz 叠图与排障：[`ros2/src/hw_insight/docs/yolo_world_airsim_online_test.md`](ros2/src/hw_insight/docs/yolo_world_airsim_online_test.md)；主流程总览：[`ros2/src/hw_insight/PRD_text_command_flight_mvp.md`](ros2/src/hw_insight/PRD_text_command_flight_mvp.md) **§9**。
 
 **验证数据流**：
 ```bash
@@ -312,7 +318,7 @@ ros2 topic echo /uav/semantic_targets_world --once  # world frame 3D 点
 
 ---
 
-## 支持的飞行动作（11 个）
+## 支持的飞行动作（12 个）
 
 | 动作 | 说明 |
 |------|------|
@@ -327,6 +333,7 @@ ros2 topic echo /uav/semantic_targets_world --once  # world frame 3D 点
 | `RTL` | 返航 |
 | `EMERGENCY_STOP` | 紧急停止 |
 | `SET_SPEED` | 设置飞行速度 |
+| `FIND_AND_GOTO` | 开放词汇视觉搜索 → 深度 grounding → `GOTO_NED`（需语义感知链） |
 
 ---
 
@@ -334,11 +341,16 @@ ros2 topic echo /uav/semantic_targets_world --once  # world frame 3D 点
 
 | 文档 | 说明 |
 |------|------|
+| `ros2/src/hw_insight/docs/DOCUMENTATION_INDEX.md` | **文档地图**：PRD / README / 测试流 / SESSION 分工与维护约定 |
 | `ros2/src/hw_insight/README_text_command_test.md` | 完整操作手册与启动流程 |
-| `ros2/src/hw_insight/SESSION_HANDOVER.md` | 开发会话交接文档（技术路线 + 变更记录） |
-| `ros2/src/hw_insight/PRD_text_command_flight_mvp.md` | 产品需求文档（v5.2） |
+| `ros2/src/hw_insight/PRD_text_command_flight_mvp.md` | 产品需求文档（**v5.5**，含 §9 主流程与 **T_YOLO**） |
+| `ros2/src/hw_insight/PRODUCT_TEST_FLOW.md` | 完成度矩阵、Stage 检查表与 Release Gate |
+| `ros2/src/hw_insight/SESSION_HANDOVER.md` | 开发会话交接（变更史、Bug 表、Backlog） |
 | `ros2/src/hw_insight/COMMAND_PROTOCOL.md` | 指令协议规范 |
-| `ros2/src/hw_insight/docs/` | EGO-Planner 集成报告与排障日志 |
+| `ros2/src/hw_insight/docs/yolo_world_airsim_online_test.md` | YOLO × AirSim 联调、RViz 叠图、`on_query` 与话题 |
+| `ros2/src/hw_insight/docs/系统技术实现白皮书.md` | 系统实现总述（论文素材；运维以 PRD 为准） |
+| `ros2/src/hw_insight/docs/第四章_系统关键技术实现审计报告.md` | 关键技术审计（论文素材） |
+| `ros2/src/hw_insight/docs/` | 另含 EGO 可行性报告、`integration_log_v1.md` 等 |
 
 ---
 

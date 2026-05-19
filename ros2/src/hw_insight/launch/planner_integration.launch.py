@@ -14,6 +14,7 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     use_rviz = LaunchConfiguration('use_rviz')
+    enable_detection_overlay = LaunchConfiguration('enable_detection_overlay')
 
     airsim_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -34,32 +35,24 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
-            'odom_topic': '/airsim_node/PX4/odom_local_ned',
-            'cloud_topic': '/uav/camera/points',
-            'depth_topic': '/airsim_node/PX4/CameraDepth1/DepthPlanar',
-            'goal_topic': '/uav/target_goal',
-            'bspline_topic': '/uav/ego_planner/bspline',
+            # odom_topic 现在是 ENU odom 输出话题（由内置 odom_ned_to_enu_node 产生）
+            'odom_topic':     '/uav/odom_enu',
+            # ned_odom_topic 是 AirSim 原始 NED odom，由桥接节点消费
+            'ned_odom_topic': '/airsim_node/PX4/odom_local_ned',
+            'cloud_topic':    '/uav/camera/points',
+            # depth_raw / camera_info_raw: AirSim 原始话题（仿真时钟），由 depth_restamper 接收
+            'depth_raw_topic':        '/airsim_node/PX4/CameraDepth1/DepthPlanar',
+            'camera_info_raw_topic':  '/airsim_node/PX4/CameraDepth1/camera_info',
+            # depth_topic / camera_info_topic: depth_restamper 输出（wall clock），供 ego_planner 使用
+            'depth_topic':            '/uav/depth_restamped',
+            'camera_info_topic':      '/uav/camera_info_restamped',
+            'goal_topic':     '/uav/target_goal',
+            'bspline_topic':  '/uav/ego_planner/bspline',
             'planner_cmd_vel_topic': '/uav/planner_cmd_vel_stamped',
             'enable_velocity_bridge': 'true',
             'use_rviz': use_rviz,
+            'enable_detection_overlay': enable_detection_overlay,
         }.items(),
-    )
-
-    # Backup point-cloud path (depth_image_proc) with RELIABLE QoS to match
-    # ego_planner subscriber.  Uses use_sim_time so stamp sync works.
-    depth_to_points_node = Node(
-        package='depth_image_proc',
-        executable='point_cloud_xyz_node',
-        name='depth_to_uav_points',
-        output='screen',
-        remappings=[
-            ('image_rect', '/airsim_node/PX4/CameraDepth1/DepthPlanar'),
-            ('camera_info', '/airsim_node/PX4/CameraDepth1/camera_info'),
-            ('points', '/uav/camera/points'),
-        ],
-        parameters=[
-            {'reliability': 'reliable'},
-        ],
     )
 
     # Static TF: world -> world_ned (identity) so that the ego_planner's
@@ -98,9 +91,13 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument('use_rviz', default_value='true'),
+        DeclareLaunchArgument(
+            'enable_detection_overlay',
+            default_value='true',
+            description='传给 ego_planner_integration：是否启动 YOLO 检测框 RViz 叠图节点',
+        ),
         airsim_launch,
         world_tf,
-        depth_to_points_node,
         move_velocity_node,
         text_command_bridge_node,
         ego_planner_launch,

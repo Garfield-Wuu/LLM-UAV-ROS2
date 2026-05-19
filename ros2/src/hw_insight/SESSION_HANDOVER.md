@@ -1,8 +1,9 @@
 # 会话交接文档
 
 > **用途**：将全部开发会话的变更、当前状态、待续任务完整记录，供下一个对话无缝继续。  
-> **最后更新**：2026-03-29（第十一次：GPU 修复 + FIND_AND_GOTO 视觉任务 action 接入 + 视觉搜索状态机 + 文档全面同步）  
-> **关联 PRD**：`PRD_text_command_flight_mvp.md`（v5.3）  
+> **最后更新**：2026-05-19（第十三次：PRD **v5.5** §9 **T_YOLO** 与 `/uav/target_query`；`semantic_perception` 默认 **`on_query`**；`docs/yolo_world_airsim_online_test.md` / **`docs/DOCUMENTATION_INDEX.md`**；§9/§10 小节编号对齐）  
+> **关联 PRD**：`PRD_text_command_flight_mvp.md`（**v5.5**）  
+> **文档地图（四份文档谁维护什么）**：`docs/DOCUMENTATION_INDEX.md`  
 > **历史会话 ID**：
 > - 第一次：`bc9aee3a-a535-45ff-ac7a-90ed74709c37`（v1.0~v2.0 基础实现）
 > - 第二次：同上延续（LLM 推理层接入）
@@ -14,7 +15,9 @@
 > - 第八次：YOLO-World 本地部署；依赖安装与 patch；CLIP 模型离线化；推理测试脚本；CPU/GPU 验证
 > - 第九次：视觉语义闭环 ROS 2 集成（4 个新节点 + launch + RViz marker + 文档同步）
 > - 第十次：语义感知链联调诊断（相机前移、6 米飞行测试前提确认、动态目标需求澄清、GPU 环境版本错配定位、三份文档同步）
-> - 第十一次：**当前**（GPU 修复 torch cu130→cu128；FIND_AND_GOTO action 接入 llm_client + bridge；视觉搜索状态机；COMMAND_PROTOCOL v2.2；全文档同步）
+> - 第十一次：GPU 修复 torch cu130→cu128；FIND_AND_GOTO action 接入 llm_client + bridge；视觉搜索状态机；COMMAND_PROTOCOL v2.2；全文档同步
+> - **第十二次**：`uav_sim.launch.py`；规划链坐标与控制权修复；四文档同步
+> - **第十三次：当前**（PRD §9 YOLO 终端命令；视觉手册与文档索引；Stage G 与默认 `on_query` 对齐）
 
 ---
 
@@ -82,18 +85,21 @@ target_position_world = (x, y, z)
   ├─→ /uav/target_goal（PoseStamped，发给 EGO-Planner）
   │
   ▼
-ego_planner_node（局部轨迹规划）
-  ├── 输入：target_goal + odom（VINS-Fusion） + depth points
-  └── 输出：/uav/ego_planner/bspline → TwistStamped → keyboard_velocity
+ego_planner_node（局部轨迹规划，world = ENU）
+  ├── 输入：target_goal + odom（ENU） + depth points
+  └── 输出：/uav/ego_planner/bspline → ego_bspline_to_twist_relay → TwistStamped（ENU）
   │
   ▼
-move_velocity.py → PX4 SITL → AirSim
+planner_velocity_bridge.py（ENU 线速度 → NED → HWSimpleKeyboardInfo）
+  │
+  ▼
+/hw_insight/keyboard_velocity → move_velocity.py → PX4 SITL → AirSim
 ```
 
 **坐标系与深度类型注意事项**：
 
 - 深度类型须固定使用 `DepthPlanar`（相机平面深度）或 `DepthPerspective`（沿射线方向深度）之一；逆投影公式必须与之匹配，不可混用。
-- 内部规划使用统一坐标系（ENU / world frame），与 AirSim / PX4 交互时集中做 NED/ENU 转换。
+- 内部规划使用 **ENU `world`**；`planner_velocity_bridge` 在送往 PX4 前将线速度 **ENU→NED**；与 AirSim / `odom_local_ned` 对齐时依赖 `odom_ned_to_enu_node` + 静态 TF `world`→`PX4`。
 - VINS-Fusion 仿真验证阶段可先用 `odom_local_ned` 替代，接入 VINS 后只需 remap，不改节点逻辑。
 
 **论文表述建议**：
@@ -102,12 +108,13 @@ move_velocity.py → PX4 SITL → AirSim
 
 ---
 
-## 2. 全量文件变更清单（累计至第十次会话）
+## 2. 全量文件变更清单（累计至第十二次会话）
 
 ### 2.1 新增文件（Created）
 
 | 文件 | 创建会话 | 说明 |
 |------|---------|------|
+| `launch/uav_sim.launch.py` | S12 | 统一仿真入口：AirSim + `move_velocity` + `text_command_bridge` + 可选 `ego_planner_integration`（`enable_ego_planner`、`use_rviz`、`max_vel` 等） |
 | `hw_insight/text_command_bridge.py` | S1 | 核心桥接：文本/JSON → 速度指令，11 个 action |
 | `hw_insight/gcs_dashboard.py` | S1 | 地面站 TUI（≤15 行，4Hz 刷新）|
 | `hw_insight/flight_regression_runner.py` | S1 | 闭环回归测试 |
@@ -172,6 +179,16 @@ move_velocity.py → PX4 SITL → AirSim
 | `PRODUCT_TEST_FLOW.md` | S11 | 完成度矩阵：FIND_AND_GOTO ✅；GPU 已验证；新增 Stage I（FIND_AND_GOTO 端到端）；Release Gate 更新 |
 | `README_text_command_test.md` | S11 | 阶段说明更新；FIND_AND_GOTO 用法示例；GPU 修复记录 |
 | `SESSION_HANDOVER.md` | S11 | 本文档更新：S11 会话条目；已知局限 #17/#18 状态更新 |
+| `hw_insight/odom_ned_to_enu_node.py` | S12 | 除 ENU `Odometry` 外广播 **`world`→`base_link`** TF（RViz / 规划器） |
+| `hw_insight/text_command_bridge.py` | S12 | `planner_mode_for_goto` 时订阅 `target_goal_topic`：`[PLANNER] 外部目标点到达` 激活规划模式；修正 `_publish_target_goal` NED→ENU 与 `frame_id=world` |
+| `hw_insight/planner_velocity_bridge.py` | S12 | **`_store_cmd`**：EGO `Twist` 为 ENU，转换为 NED 再写入 `HWSimpleKeyboardInfo`（修复「目标在前、飞机横飞」） |
+| `PRD_text_command_flight_mvp.md` | S12 | v5.4：统一 launch、坐标链、§13 话题表 |
+| `README_text_command_test.md` | S12 | §3 终端 C/C'、§8.4 规划链、FAQ |
+| `PRODUCT_TEST_FLOW.md` | S12 | 矩阵、拓扑、Stage H、常用命令 |
+| `SESSION_HANDOVER.md` | S12 | S12 条目、数据流、SOP、已知局限 |
+| `PRD_text_command_flight_mvp.md` | S13 | **v5.5**：§9 **T_YOLO**、§14 结论与实现对齐、§13.5 附录文档链 |
+| `README.md`（仓库根 `hw-ros2/`） | S13 | 12 action、语义链 **on_query**、`target_query` 示例、根文档索引表 |
+| `SESSION_HANDOVER.md` | S13 | 文首日期、S13 摘要、§3.2 `on_query`、§2.5 汇总 |
 
 ### 2.3 删除文件（Deleted）
 
@@ -183,6 +200,16 @@ move_velocity.py → PX4 SITL → AirSim
 
 `keyboard_position.py` / `keyboard_velocity.py` / `move_position.py` / `offboard.py` / `px4_test.py` / `lesson3.launch.py` / `lesson4.launch.py` / `msg_px4_fmu_out_vehicle_status.py` 等原有文件均未改动。
 
+### 2.5 第十三次会话（2026-05-19）— 文档与视觉默认行为
+
+| 变更 | 说明 |
+|------|------|
+| `PRD_text_command_flight_mvp.md` | §9 **T_YOLO**、`/uav/target_query` 终端示例；§9/§10 小节编号对齐；文档定位链到文档索引 |
+| `README_text_command_test.md` | 文首 PRD v5.5；§8.1 改为 `semantic_perception` + `target_query` + 链到 `yolo_world_airsim_online_test.md` |
+| `PRODUCT_TEST_FLOW.md` | 判定依据增链；Stage G 写明默认 **on_query**；§7 增加 `topic pub` 触发行 |
+| `docs/yolo_world_airsim_online_test.md` | 阶段 1/2、§8 表与 PRD 命令对齐（历史编辑汇总） |
+| `docs/DOCUMENTATION_INDEX.md` | **新建**：四份文档分工、单一事实源、是否精简的结论 |
+
 ---
 
 ## 3. 架构现状（当前数据流）
@@ -192,7 +219,7 @@ move_velocity.py → PX4 SITL → AirSim
     │  stdin（交互式终端）或 /uav/nl_input (std_msgs/String)
     ▼
 llm_client.py  ←── TELEMETRY context ←──────────────────────────────┐
-    ├── build_prompt（状态 + 11 action + 安全约束 + 机体坐标说明）      │
+    ├── build_prompt（状态 + 12 action + 安全约束 + 机体坐标说明）      │
     ├── 启动前方向键选择 provider/model；Ollama 先 warm-up 再开放输入   │
     ├── 调用 Groq API（JSON mode）或 Ollama（format=json）             │
     ├── `<think>` 摘要打印 + 完整推理写入 ROS2 log                     │
@@ -205,7 +232,7 @@ llm_client.py  ←── TELEMETRY context ←───────────�
     ▼                                                                  │
 text_command_bridge.py ─────────────── /uav/llm_task_status ─────────┘
     ├── 解析 JSON / 中文文本
-    ├── 11 个 action dispatch
+    ├── 12 个 action dispatch（含 FIND_AND_GOTO）
     ├── MOVE_VELOCITY：机体坐标 vx/vy → NED（cos/sin heading 旋转）
     ├── 10Hz 控制环（TAKEOFF althold / GOTO_NED / ORBIT / YAW_TO）
     ├── 直发 VehicleCommand（RTL / EMERGENCY_STOP）
@@ -223,19 +250,20 @@ move_velocity.py
          ▼
 PX4 SITL → AirSim
 
-### 3.1 规划接入模式（`planner_integration.launch.py`，可选）
+### 3.1 规划接入模式（`uav_sim.launch.py` 或 `planner_integration.launch.py`，可选）
 
 ```
 AirSim RGB/Depth + odom_local_ned
     │
+    ├── odom_ned_to_enu_node → ENU odom + TF world→base_link
     ├── depth_image_proc → /uav/camera/points（辅助；QoS reliable）
     ├── ego_planner_node ← depth + odom（grid_map/*）
     │       └── /grid_map/occupancy(_inflate) → RViz
     │       └── /uav/ego_planner/bspline
-    └── ego_bspline_to_twist_relay → /uav/planner_cmd_vel_stamped
-              └── planner_velocity_bridge → /hw_insight/keyboard_velocity → move_velocity
+    └── ego_bspline_to_twist_relay → /uav/planner_cmd_vel_stamped（ENU）
+              └── planner_velocity_bridge（ENU→NED）→ /hw_insight/keyboard_velocity → move_velocity
 
-/uav/target_goal ← text_command_bridge（GOTO_NED，可选 planner 模式）
+/uav/target_goal ← text_command_bridge（GOTO_NED）或 RViz 2D Goal / 语义链；planner 模式下 bridge 订阅该 topic 释放 hover 抢占
 ```
 
 静态 TF：`world` → `PX4`（identity）。WSL2 建议：`export FASTDDS_BUILTIN_TRANSPORTS=UDPv4`。
@@ -247,7 +275,7 @@ AirSim RGB/Depth + odom_local_ned
 ```
 AirSim RGB(Scene) + DepthPlanar + camera_info + odom_local_ned
     │
-    ├── /uav/target_query（动态 prompt）或 launch 参数 texts（静态 prompt）
+    ├── /uav/target_query（动态 prompt；**launch 默认 `inference_mode=on_query` 时每条非空 query 触发一次推理**）或 launch 参数 texts（占位 / continuous 模式）
     ▼
 yolo_world_detector.py
     ├── YOLO-World open-vocabulary 检测
@@ -274,11 +302,13 @@ semantic_goal_to_planner.py（可选）
 - AirSim 深度相机已按本轮对话前提前移，目标是避免桨叶进入视场。
 - 无人机当前测试前提为已起飞，飞行高度约 6 米，适合做实时检测与深度 grounding 验证。
 - 系统目标不应局限于固定 `red car`，而应支持动态语义目标，如“穿黄色衣服的人”。
-- 当前最大功能缺口不在检测/grounding/TF 本身，而在 `LLM -> 视觉任务协议 -> /uav/target_query -> /uav/target_goal` 这段尚未正式接入。
+- `FIND_AND_GOTO` 已接入；与 EGO-Planner 的自动切换、mission 级抢占仍为后续产品化项。
 
 ---
 
-## 4. 当前 Action 协议全集（11 个）
+## 4. 当前 Action 协议全集（12 个）
+
+> 下表为 COMMAND_PROTOCOL 主链动作；历史文档若写「11 个」为 S11 之前版本，以 **12 个（含 FIND_AND_GOTO）** 为准。
 
 | # | Action | 状态 | 主要参数 | 坐标系 | 控制算法 |
 |---|--------|------|---------|--------|---------|
@@ -293,6 +323,7 @@ semantic_goal_to_planner.py（可选）
 | 9 | `RTL` | ✅ | — | — | 直发 VEHICLE_CMD_NAV_RETURN_TO_LAUNCH |
 | 10 | `EMERGENCY_STOP` | ✅ | — | — | 直发 VEHICLE_CMD_COMPONENT_ARM_DISARM(0) |
 | 11 | `SET_SPEED` | ✅ | `speed` (m/s, 0.5-15) | — | 更新 default_speed_xy/z |
+| 12 | `FIND_AND_GOTO` | ✅ | `query` (str) | 视觉→ENU→NED | 搜索状态机 → GOTO_NED |
 
 **坐标系说明**：
 - `MOVE_VELOCITY`/`MOVE_REL`：vx/dx = 机头方向，vy/dy = 机身右方（机体坐标），vz/dz = NED 垂直（正=下，负=上）
@@ -365,6 +396,8 @@ semantic_goal_to_planner.py（可选）
 | 18 | 体素大平面 / 与画面对不上 | 120° FOV + 相机下倾 + `cam2body` 未建模 | AirSim FOV/位姿 + `cam2body_` + 内参同步 | S4 | ✅ |
 | 19 | FastDDS SHM 权限 | WSL2 共享内存 | `FASTDDS_BUILTIN_TRANSPORTS=UDPv4` | S4 | ✅ |
 | 20 | YOLO-World 当前环境退回 CPU | Python 环境安装了 `torch 2.11.0+cu130`，高于当前 NVIDIA 驱动支持的 CUDA 12.9，导致 `torch.cuda.is_available()` 为 False | 待环境修复：切换到与驱动兼容的 CUDA build（如 cu128）或升级驱动；节点代码无需改 | S10 | ⚠️ 已定位 |
+| 21 | RViz 有轨迹但飞机不动 | 仅 RViz 发 `/uav/target_goal`，`planner_control_active` 未激活，`text_command_bridge` 持续发 hover | `planner_mode_for_goto` 下 bridge **订阅** `target_goal_topic`，外部目标到达打 `[PLANNER] 外部目标点到达` | S12 | ✅ |
+| 22 | 目标在前、飞机往错误方向飞 | EGO `TwistStamped` 为 **ENU**，曾误与 PX4 **NED** 轴一一对应 | `planner_velocity_bridge._store_cmd`：**NED_x=ENU_y, NED_y=ENU_x, NED_z=-ENU_z** | S12 | ✅ |
 
 > **注**：Bug 12 的根治方案是在 Windows 端运行 `w32tm /resync /force` 修复时间同步。
 
@@ -379,9 +412,10 @@ semantic_goal_to_planner.py（可选）
   T1  AirSim（Windows UE Play 按钮；修改 settings.json 后须冷启动）
   T2  PX4 SITL
   T3  uXRCE-DDS 桥接
-  T4  ROS2 飞控底层（launch）— 二选一：
+  T4  ROS2 飞控底层（launch）— **三选一**：
         • 仅手飞/LLM：`text_command_test.launch.py`
-        • 规划+建图+RViz：`planner_integration.launch.py use_rviz:=true`
+        • **仿真 + 可选 EGO（推荐）**：`uav_sim.launch.py enable_ego_planner:=true`
+        • 历史：`planner_integration.launch.py use_rviz:=true`
   T5  LLM 交互终端（独立，有 ▶ 提示符）
   T6  地面站 TUI（可选）
 ```
@@ -402,12 +436,13 @@ source /opt/ros/humble/setup.bash && source install/setup.bash
 export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
 ros2 launch hw_insight text_command_test.launch.py
 
-# ── T4b：规划 + 建图 + RViz（与 T4a 二选一，勿双开冲突）──
+# ── T4c：仿真 + 可选 EGO-Planner（与 T4a/T4b 三选一）────────
 cd ~/hw-ros2/ros2
 source /opt/ros/humble/setup.bash && source install/setup.bash
 export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
-ros2 launch hw_insight planner_integration.launch.py use_rviz:=true
-# 约 10s 后：ros2 node list | grep ego_planner
+ros2 launch hw_insight uav_sim.launch.py enable_ego_planner:=true use_rviz:=true
+
+# T4b（历史）：planner_integration.launch.py — 与 T4a/T4c 勿重复起 AirSim
 
 # ── T5：LLM 交互终端（必须独立终端！）──────────────
 cd ~/hw-ros2/ros2
@@ -550,7 +585,9 @@ plan 格式已实现。LLM 可输出 `{"plan": [...]}` 多步计划，节点按�
 
 #### P5-F：LLM 视觉任务协议接入
 
-> **S10 新识别出的关键缺口**：当前 `llm_client.py` 和动作协议中没有视觉任务 action，LLM 还不知道系统具备 `target_query` / 语义目标 / planner 模式能力。
+> **S11 已完成**：`FIND_AND_GOTO`、查询发布与搜索状态机已落地。下列为编排与协议细化（非阻塞最小演示）。
+
+> **S10 曾识别的关键缺口**（历史）：当时 `llm_client` 尚无视觉任务 action。
 
 - 🔲 为 LLM 增加视觉任务级 action 或结构化字段（目标类别、属性、相对目标动作）
 - 🔲 从自然语言任务中提取 `target_category` / `target_attribute`，并稳定生成 `/uav/target_query`
@@ -581,9 +618,10 @@ plan 格式已实现。LLM 可输出 `{"plan": [...]}` 多步计划，节点按�
 ```
 /home/hw/hw-ros2/ros2/src/hw_insight/
 ├── hw_insight/
-│   ├── text_command_bridge.py    ← 核心桥接（11 action；GOTO_NED→/uav/target_goal）
+│   ├── odom_ned_to_enu_node.py   ← NED→ENU odom + TF world→base_link
+│   ├── text_command_bridge.py    ← 核心桥接（12 action；GOTO_NED→/uav/target_goal；可选订阅目标激活规划）
 │   ├── move_velocity.py          ← PX4 执行器（command_topic 可 remap）
-│   ├── planner_velocity_bridge.py← Planner Twist → keyboard_velocity
+│   ├── planner_velocity_bridge.py← Planner Twist(ENU) → NED → keyboard_velocity
 │   ├── ego_bspline_to_twist_relay.py ← Bspline → TwistStamped
 │   ├── test_planner_feedback.py  ← 规划反馈粗测脚本
 │   ├── gcs_dashboard.py          ← TUI（4Hz）
@@ -594,6 +632,7 @@ plan 格式已实现。LLM 可输出 `{"plan": [...]}` 多步计划，节点按�
 │   ├── semantic_target_tf_node.py← camera→body→world 变换 + RViz Marker + 可选 /uav/target_goal
 │   └── semantic_goal_to_planner.py ← world 目标 → /uav/target_goal 薄桥接
 ├── launch/
+│   ├── uav_sim.launch.py           ← 仿真统一入口（可选 EGO-Planner）
 │   ├── text_command_test.launch.py   ← 默认手飞+LLM 链
 │   ├── planner_integration.launch.py ← AirSim+飞控+ego_planner+RViz
 │   ├── ego_planner_integration.launch.py ← 规划器参数与 remap 集中处
@@ -604,10 +643,14 @@ plan 格式已实现。LLM 可输出 `{"plan": [...]}` 多步计划，节点按�
 ├── config/
 │   └── mapping_config.yaml
 ├── docs/
+│   ├── DOCUMENTATION_INDEX.md      ← 四份主文档地图与维护约定
+│   ├── yolo_world_airsim_online_test.md
+│   ├── 系统技术实现白皮书.md
+│   ├── 第四章_系统关键技术实现审计报告.md
 │   ├── ego_planner_feasibility_report.md
 │   └── integration_log_v1.md
 ├── COMMAND_PROTOCOL.md
-├── PRD_text_command_flight_mvp.md ← v5.1
+├── PRD_text_command_flight_mvp.md ← v5.5
 ├── README_text_command_test.md
 ├── PRODUCT_TEST_FLOW.md
 └── SESSION_HANDOVER.md           ← 本文档
@@ -669,7 +712,7 @@ source install/setup.bash
 | 多步执行等待策略 | 有 duration → 等 duration+1.2s；事件型 → 轮询 TELEMETRY command=IDLE | 固定 sleep | 兼顾时间确定性和事件响应 |
 | GOTO_NED 完成判定 | 3D 距离 ≤ 0.5m | 分轴判断 | 简单可靠，适合速度控制模式下的漂移余量 |
 | TUI 事件过滤 | 只显示非 TELEMETRY 事件 | 显示全部 | TELEMETRY 5Hz 会淹没有效信息 |
-| 规划执行通道复用 | B-spline→Twist→`planner_velocity_bridge`→`/hw_insight/keyboard_velocity` | 新 MAV 话题 | 复用现有 Offboard 速度链，改动面小 |
+| 规划 Twist 线速度帧 | **EGO world = ENU**；在 `planner_velocity_bridge` 转 **NED** 再进 `move_velocity` | 与 `Twist` 轴直接等同 | 曾导致「目标在前、飞机侧飞」；现已按 ENU→NED 映射 |
 | 远程 Ollama 默认 URL | `llm_client` 读 `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | 硬编码 localhost | 与现有 Claude-Code 兼容环境变量对齐；建议写入 `~/.bashrc` |
 | LLM 幻觉 JSON 处理 | API JSON mode + 动作别名库 + 平衡括号 / 正则提取 | 仅 `find('{')/rfind('}')` | 提升混合文本、围栏代码块、`<think>` 包裹场景下的解析鲁棒性 |
 | `<think>` 推理处理 | 终端摘要 + ROS2 log 持久化 | 直接剥离丢弃 | 保留可解释性，便于后续审计与问题复盘 |
@@ -699,9 +742,9 @@ source install/setup.bash
 
 6. **修改 `settings.json` 后必须重启 AirSim（UE）**，并同步更新 `ego_planner_integration.launch.py` 中 `grid_map/fx,fy,cx,cy` 与 `plan_env` 的 `cam2body_`（见 PRD §13）。二者不一致时表现为体素错位、与相机画面“上下颠倒”或整片地面占用。
 
-7. **`text_command_test` 与 `planner_integration` 不要同时启动**（会重复起 `airsim_node`、`move_velocity` 等）。同一仿真会话二选一。
+7. **`text_command_test` / `uav_sim` / `planner_integration` 不要叠加以致重复起 `airsim_node`、`move_velocity`**。同一仿真会话 **三选一**；避障联调优先 **`uav_sim.launch.py enable_ego_planner:=true`**。
 
-8. **规划速度 vs LLM/键盘**：`planner_velocity_bridge` 与 `text_command_bridge` 可能同时写 `/hw_insight/keyboard_velocity`；使用 `planner_mode_for_goto` 等参数避免 GOTO 时双写，或临时停一侧节点。
+8. **规划速度 vs LLM/键盘**：`planner_velocity_bridge` 与 `text_command_bridge` 可能同时写 `/hw_insight/keyboard_velocity`。使用 `planner_mode_for_goto` + 外部目标订阅，或 GOTO 路径下由 bridge 释放 hover；仍冲突时临时停一侧发布者。**EGO 的 `TwistStamped` 线速度为 ENU**（已在 bridge 转 NED）；方向异常时先 `ros2 topic echo /uav/planner_cmd_vel_stamped` 对照机头。
 
 9. **交互式模型选择依赖 TTY**：方向键菜单仅适用于 `ros2 run hw_insight llm_client` 的独立终端。若从 `ros2 launch`、脚本管道或非 TTY 环境启动，会自动跳过交互，退回 ROS 参数 / 环境变量模式。
 
@@ -709,7 +752,7 @@ source install/setup.bash
 
 11. **离线拦截语义**：若长时间未收到新鲜 TELEMETRY，普通动作会被前置安全层拦截；`RTL` / `LAND` / `HOVER` / `EMERGENCY_STOP` 仍允许通过，且可用 `!` 前缀触发专家绕过路径。
 
-12. **语义感知链与飞控链独立启停**：`semantic_perception.launch.py` 不包含 `airsim_node` 和 `move_velocity`，需要先启动 `text_command_test.launch.py` 或 `planner_integration.launch.py` 再叠加语义链。
+12. **语义感知链与飞控链独立启停**：`semantic_perception.launch.py` 不包含 `airsim_node` 和 `move_velocity`，需要先启动 **`text_command_test.launch.py`、`uav_sim.launch.py` 或 `planner_integration.launch.py` 之一** 再叠加语义链。
 
 13. **YOLO-World 首次推理较慢**：模型加载和首帧 GPU warm-up 约需 10-30 秒，之后 GPU 单帧推理通常 <100ms。`yolo_world_detector` 在模型加载完成前不会崩溃，只是不发检测结果。
 

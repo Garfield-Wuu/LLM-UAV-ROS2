@@ -1,10 +1,11 @@
 # 无人机自主决策系统开发流程指南
 
-> 与 **PRD**（`PRD_text_command_flight_mvp.md` v5.3）和 **会话交接**（`SESSION_HANDOVER.md`）保持一致；LLM 启动方式以本文 **§3 终端 D** 为准。
+> 与 **PRD**（`PRD_text_command_flight_mvp.md` **v5.6**）和 **会话交接**（`SESSION_HANDOVER.md`）保持一致；LLM 启动方式以本文 **§3 终端 D** 为准。  
+> **文档谁看谁先看**：[`docs/DOCUMENTATION_INDEX.md`](docs/DOCUMENTATION_INDEX.md)（四份文档分工与单一事实源）。
 
 ## 1. 当前阶段说明
 
-本仓库当前处于"Phase 0：语义指令飞行 MVP 已完成；Phase 1：LLM 工程化增强（双后端菜单、远端 Ollama、鲁棒解析）已落地；Phase 2：视觉语义识别 + 几何 Grounding + FIND_AND_GOTO 视觉任务闭环已落地，当前进入联调验证与下一阶段（VINS + EGO-Planner 路径规划）准备"阶段。
+本仓库当前处于"Phase 0：语义指令飞行 MVP 已完成；Phase 1：LLM 工程化增强已落地；Phase 2：视觉语义 + FIND_AND_GOTO 已落地；**AirSim 侧 EGO-Planner 避障仿真链已可联调**（`uav_sim.launch.py`、ENU→NED 速度桥、RViz 目标与 TF）；下一阶段以 VINS 位姿与任务级编排为主"阶段。
 
 已经具备的能力：
 
@@ -23,12 +24,12 @@
 尚未完成的能力（下一阶段目标）：
 
 - **VINS-Fusion** 位姿估计与 world frame 对齐（多传感器状态估计，替代当前 AirSim `odom_local_ned`）
-- **EGO-Planner** 与 VINS 位姿驱动的完整局部轨迹规划闭环（当前 FIND_AND_GOTO 为直线 GOTO_NED，无避障）
+- **EGO-Planner** 与 VINS 位姿驱动的完整局部轨迹规划闭环（仿真已可走 planner 避障；真机/VINS 待接入）
 - 复杂属性 prompt 的泛化精度验证（不同场景、目标遮挡、多目标选择）
 
 已部分接入（仿真侧，可选）：
 
-- **EGO-Planner（ROS 2）**：见 `planner_integration.launch.py`、`SESSION_HANDOVER.md` 与 PRD §13；目前以深度图 + `odom_local_ned` 驱动，完整路线下将切换至 VINS-Fusion 位姿驱动；与 `text_command_test` 二选一启动，勿双开。
+- **EGO-Planner（ROS 2）**：推荐 **`launch/uav_sim.launch.py`**（`enable_ego_planner:=true` 合并飞控链 + `ego_planner_integration`）；或历史入口 `planner_integration.launch.py`。`odom_ned_to_enu_node` 发布 ENU 里程计并广播 **`world`→`base_link`** TF；`planner_velocity_bridge` 将规划器 **ENU world** 线速度转为 **NED** 再送 `move_velocity`。与仅手飞链 **二选一** 启动，勿双开 `airsim_node`。
 
 因此，当前开发流程应以**先保证现有语义飞控链稳定，再验证语义感知链稳定，最后再做自然语言视觉任务闭环**为原则。
 
@@ -59,7 +60,9 @@
 
 ## 3. 标准启动顺序
 
-建议至少打开 5 个终端。
+建议至少打开 **5** 个终端（A、B、**C / C' / C'' 三选一**、D、可选 E）。若要做 **`FIND_AND_GOTO` 自然语言找车/找人**、或要在 RViz **YOLOOverlay** 看检测框，还须再开 **第 6 个终端 F（语义感知链）**——**`planner_integration.launch.py` / `uav_sim.launch.py` 均不内置 YOLO**，须与主链并行启动 `semantic_perception.launch.py`（详见 PRD §4.2.1、§9 `T_YOLO`）。
+
+修改过 `hw_insight` 的 `launch/*.py` 后，须在本工作区执行 **`colcon build --packages-select hw_insight && source install/setup.bash`**，否则 `ros2 launch hw_insight …` 仍可能用 **install 目录里的旧 launch**。
 
 ### 终端 A：PX4 SITL
 
@@ -83,7 +86,9 @@ MicroXRCEAgent udp4 -p 8888
 
 - `session established`
 
-### 终端 C：主飞控链
+### 终端 C：主飞控链（**C / C' / C'' 三选一**，勿双开 `airsim_node`）
+
+**C — 仅手飞 / LLM（无 EGO-Planner）**
 
 ```bash
 cd /home/hw/hw-ros2/ros2
@@ -93,9 +98,49 @@ export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
 ros2 launch hw_insight text_command_test.launch.py
 ```
 
+**C' — 仿真 + 可选 EGO-Planner（避障联调推荐）**
+
+```bash
+cd /home/hw/hw-ros2/ros2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
+ros2 launch hw_insight uav_sim.launch.py enable_ego_planner:=true use_rviz:=true
+# 可调：max_vel:=1.5 max_acc:=1.5
+```
+
 预期信号：
 
 - `Text command bridge ready on /uav/user_command`
+- 若启用规划：`PlannerVelocityBridge started`、`ego_planner_node` 等节点出现；RViz Fixed Frame 建议 **`world`**
+
+**C'' — `planner_integration`（与 C / C' 同类互斥，勿双开 `airsim_node`）**
+
+与 `uav_sim` 二选一或按项目习惯选用；已含 AirSim、`move_velocity`、`text_command_bridge`、`ego_planner_integration`（RViz、`detections_image_overlay` 叠图节点等）。**仍不含** `yolo_world_detector`。
+
+```bash
+cd /home/hw/hw-ros2/ros2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
+ros2 launch hw_insight planner_integration.launch.py use_rviz:=true
+# 不需要 RViz 叠图时可：enable_detection_overlay:=false
+```
+
+### 终端 F：语义感知链（**FIND_AND_GOTO / YOLO RViz 叠图需要**）
+
+在 **终端 C / C' / C'' 已成功出图**（`/airsim_node/PX4/CameraDepth1/Scene` 有频率）之后再起。默认 **`semantic_perception.launch.py`**：`inference_mode=on_query`（启动后不自动跑 GPU；**每条非空** `/uav/target_query` 推理一次）、`publish_target_goal=false`（不向 `/uav/target_goal` 抢发，避免与 bridge 规划目标冲突；若你要语义节点直驱 planner 再显式改参）。
+
+```bash
+cd /home/hw/hw-ros2/ros2
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
+ros2 launch hw_insight semantic_perception.launch.py
+# 可选：score_thr:=0.15 device:=auto
+```
+
+端到端自然语言「前往红色汽车」：**终端 C'' + F + D**（先起飞/有遥测，再发话）。观察：`/uav/target_query`、`/uav/detections_2d`、`/uav/semantic_targets_world`、`/uav/llm_task_status`（`SEARCHING` → `SEARCH_FOUND` → `GOTO_NED` 等）。若 `dets=0`，`/uav/semantic_targets_camera` 与 world 可能无输出（见 `docs/yolo_world_airsim_online_test.md`）。
 
 ### 终端 D：LLM 交互终端（**必须独立终端**，勿放进 `ros2 launch`）
 
@@ -252,7 +297,7 @@ ros2 run hw_insight flight_regression_runner
 
 1. 联调验证 FIND_AND_GOTO 在实际 AirSim 场景中的端到端链路（Stage I 测试）
 2. 验证 `/uav/semantic_targets_world` 在无人机运动时的坐标稳定性
-3. 将 FIND_AND_GOTO 内部的 GOTO_NED 替换为 EGO-Planner 避障规划（当前无避障）
+3. 将 FIND_AND_GOTO 与 EGO-Planner 编排（发现目标后稳定走 planner 目标与 `planner_mode_for_goto`，与纯 GOTO_NED 测试分层）
 4. 接入 VINS-Fusion 替换 `odom_local_ned`，提升 world 坐标精度
 5. 多目标场景下 FIND_AND_GOTO 目标选择策略优化
 
@@ -336,20 +381,21 @@ ros2 topic echo /uav/llm_task_status
 
 ## 8. 后续模块接入建议（Phase 2 技术路线）
 
-当前目标技术闭环为：
+当前目标技术闭环为（**已实现主路径：`FIND_AND_GOTO`**；括号内为尚未实现的可选编排）：
 
 ```
 用户自然语言指令
-  → LLM 任务解析（生成 target_category / target_attribute / 任务动作）
-  → 视觉任务协议生成 `/uav/target_query`
+  → LLM 任务解析（含 FIND_AND_GOTO 与 query）
+  → text_command_bridge：收到 FIND_AND_GOTO 后发布 `/uav/target_query`
+  → （未实现：若要先视觉再规划，应在此插入「一次检测 → 摘要进 LLM prompt」）
   → YOLO-World 开放词汇目标检测（输出 bbox）
   → AirSim 深度图 + 相机内参逆投影（camera frame 3D 点）
   → AirSim odom / 后续 VINS-Fusion 位姿 → world frame 对齐
-  → `/uav/target_goal` → EGO-Planner 局部轨迹规划
+  → bridge 生成 GOTO_NED；planner 模式下 `/uav/target_goal` → EGO-Planner 局部轨迹规划
   → PX4 执行
 ```
 
-当前已落地的语义感知链保持独立 ROS 2 节点，不混入现有 `llm_client.py` / `text_command_bridge.py`。
+语义感知链节点保持独立 launch（`semantic_perception.launch.py`），**逻辑上**与 `llm_client` / `text_command_bridge` 解耦；**运行期**由 bridge 通过 `/uav/target_query` 串联。
 
 ### 8.1 视觉语义识别层（YOLO-World）
 
@@ -364,12 +410,17 @@ ros2 topic echo /uav/llm_task_status
 YOLO-World 选型说明：支持 `prompt-then-detect` 范式，将词汇嵌入重参数化进模型权重，推理效率接近标准 YOLO，同时支持任意文本描述的开放类别检测，适合 `"yellow clothes person"`、`"person"`、`"car"`、`"vehicle near building"` 等场景，不应把系统目标限制在固定 `red car`。
 
 ```bash
-# 仅验证检测节点
-ros2 run hw_insight yolo_world_detector --ros-args -p texts:="person"
+# 推荐：整条语义感知链（默认 on_query + 默认不向 /uav/target_goal 发点；详见 launch 参数）
+ros2 launch hw_insight semantic_perception.launch.py
 
-# 推荐直接启动整条语义感知链
-ros2 launch hw_insight semantic_perception.launch.py texts:="person"
+# on_query：另开终端发 prompt，每条触发一次推理（与 PRD §9 T_YOLO 一致）
+ros2 topic pub --once /uav/target_query std_msgs/msg/String "data: car"
+
+# 仅压测 2D 节点（默认 continuous；与全链默认不一致时需 inference_mode:=on_query）
+# ros2 launch hw_insight yolo_world_test.launch.py
 ```
+
+联调步骤、RViz 叠图、深度与话题预检：[`docs/yolo_world_airsim_online_test.md`](docs/yolo_world_airsim_online_test.md)。
 
 ### 8.2 几何 Grounding 层（深度图 + 逆投影 + 坐标变换）
 
@@ -404,31 +455,38 @@ ros2 topic echo /uav/semantic_targets_world --once
 
 ### 8.4 轨迹规划层（EGO-Planner）
 
-EGO-Planner 是面向四旋翼的 ESDF-free、gradient-based 局部规划器，输入为当前位姿、局部障碍信息和目标 world 坐标，输出局部可飞行轨迹。
+EGO-Planner 在 **`world`（ENU：x 东、y 北、z 上）** 下规划；PX4 Offboard 速度 setpoint 为 **NED**。链路上必须在 `planner_velocity_bridge` 做 **ENU→NED**（`keyboard.x = twist.y` 北，`keyboard.y = twist.x` 东，`keyboard.z = -twist.z` 下），不可把 `Twist.linear` 当 NED 直通。
 
 当前已提供最小接入链路（ROS 2）：
 
-- 目标输入：`text_command_bridge` 在 `GOTO_NED` 时发布 `/uav/target_goal`（`PoseStamped`）
-- 规划输出：`planner_velocity_bridge` 订阅 `/uav/planner_cmd_vel`（`Twist`）或 `/uav/planner_cmd_vel_stamped`（`TwistStamped`）
-- 执行入口：桥接后统一发布到 `/hw_insight/keyboard_velocity`，复用现有 `move_velocity`
+- **统一 launch（推荐）**：`uav_sim.launch.py` 组合 AirSim、`move_velocity`、`text_command_bridge`、可选 `ego_planner_integration`（参数 `enable_ego_planner`、`use_rviz` 等）。
+- **目标**：`/uav/target_goal`（`PoseStamped`，`frame_id` 为 **`world`**）。来源可为 `text_command_bridge`（`GOTO_NED` 且 `publish_target_goal_on_goto`）、RViz「2D Goal Pose」（经 `goal_relay` 等 remap）、或语义链节点。**当 `planner_mode_for_goto:=true` 时**，bridge 会**订阅** `target_goal_topic`：外部目标到达后置 `planner_control_active`，避免持续 hover 覆盖规划速度。
+- **里程计 / TF**：`odom_ned_to_enu_node` 将 `odom_local_ned` 转为 ENU 并广播 **`world`→`base_link`**，供规划器与 RViz。
+- **规划→执行**：`/uav/ego_planner/bspline` → `ego_bspline_to_twist_relay` → `/uav/planner_cmd_vel_stamped`（ENU）→ **`planner_velocity_bridge`（ENU→NED）** → `/hw_insight/keyboard_velocity` → `move_velocity`。
 
-Phase 2 当前已支持由 `semantic_target_tf_node.py` 或 `semantic_goal_to_planner.py` 发布 `/uav/target_goal`。两者二选一，避免双写。
+Phase 2 仍支持由 `semantic_target_tf_node.py` 或 `semantic_goal_to_planner.py` 发布 `/uav/target_goal`；与 bridge 自发布二选一，**避免双写**。
 
 ```bash
-# 启动规划接入模式（当前仿真可用）
+# 推荐：单入口仿真 + 规划
 cd /home/hw/hw-ros2/ros2
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
-ros2 launch hw_insight planner_integration.launch.py use_rviz:=true
+ros2 launch hw_insight uav_sim.launch.py enable_ego_planner:=true use_rviz:=true
 
-# 快速自测：手动发布目标点
+# 历史入口（与 uav_sim / text_command_test 勿重复起 AirSim）
+# ros2 launch hw_insight planner_integration.launch.py use_rviz:=true
+
+# 1) 先 TAKEOFF，解锁并进入 Offboard（move_velocity 安全闸门）
 ros2 topic pub --once /uav/user_command std_msgs/msg/String \
-"{data: '{\"action\":\"GOTO_NED\",\"params\":{\"x\":20.0,\"y\":5.0,\"altitude\":8.0}}'}"
+"{data: '{\"action\":\"TAKEOFF\",\"params\":{\"altitude\":6.0}}'}"
 
-# 模拟 planner 输出速度
-ros2 topic pub /uav/planner_cmd_vel geometry_msgs/msg/Twist \
-"{linear: {x: 1.0, y: 0.0, z: 0.0}, angular: {z: 0.0}}"
+# 2) 再 GOTO_NED 或 RViz 2D Goal；观察 bridge 日志 [PLANNER] 外部目标点到达（RViz 场景）
+ros2 topic pub --once /uav/user_command std_msgs/msg/String \
+"{data: '{\"action\":\"GOTO_NED\",\"params\":{\"x\":20.0,\"y\":5.0,\"altitude\":6.0}}'}"
+
+# 调试：直接发 ENU 速度（仅供排查；真链路由 relay 发 stamped）
+# ros2 topic pub /uav/planner_cmd_vel_stamped geometry_msgs/msg/TwistStamped "..."
 ```
 
 ### 8.5 执行层（保持不变）
@@ -439,7 +497,7 @@ ros2 topic pub /uav/planner_cmd_vel geometry_msgs/msg/Twist \
 - EGO-Planner 负责局部轨迹生成，不替代 LLM 的语义理解
 - 执行层负责 setpoint 与 Offboard 心跳（`move_velocity.py`）
 - 安全层独立于 LLM 存在，运行期持续检查碰撞风险、地理围栏、低电量等异常状态
-- 当前缺口不在检测节点本身，而在 `LLM -> 视觉任务协议 -> prompt / target_goal` 这一段
+- 视觉任务协议已接通 `FIND_AND_GOTO`；与 planner 深度编排（自动切避障航迹）仍可继续产品化。
 
 ## 9. 常见问题
 
@@ -470,5 +528,11 @@ ros2 topic pub /uav/planner_cmd_vel geometry_msgs/msg/Twist \
 - **YOLO-World 当前退回 CPU**  
   节点本身支持 GPU 优先；若当前环境出现 CPU fallback，通常是 Python 环境中的 `torch` CUDA 版本与 NVIDIA 驱动不匹配。当前已定位到一类典型情况：`torch 2.11.0+cu130` 高于驱动支持的 CUDA 12.9，会导致 `torch.cuda.is_available()` 为 `False`。这属于环境问题，不代表系统只能使用 CPU 推理。
 
+- **RViz 有轨迹但飞机不动**  
+  先 `TAKEOFF`；确认 Offboard；`planner_mode_for_goto` 开启时需有 **`[PLANNER] 外部目标点到达`** 或先发 `GOTO_NED`，避免 bridge hover 压住 `keyboard_velocity`。
+
+- **目标在前、飞机往侧后方飘**  
+  多为规划速度 **ENU 被误当 NED**；确认使用当前 `planner_velocity_bridge`（已做 ENU→NED）。排查：`ros2 topic echo /uav/planner_cmd_vel_stamped` 与机头方向对照。
+
 - 想做“飞到穿黄色衣服人的头顶”  
-  当前检测链和空间 grounding 已具备基础，但还需要补上 `LLM -> 视觉任务协议 -> /uav/target_query -> /uav/target_goal` 的动作与消息设计，才能从自然语言任务稳定驱动感知与规划。
+  启动 `semantic_perception.launch.py` + 主链，用自然语言或 `FIND_AND_GOTO` JSON；详见 §4.3 与 `COMMAND_PROTOCOL.md`。

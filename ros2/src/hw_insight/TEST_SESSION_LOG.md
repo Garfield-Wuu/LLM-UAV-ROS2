@@ -1,0 +1,472 @@
+# 测试记录
+
+## 测试会话 - 2026-05-19 22:35:52 CST
+
+- [2026-05-19 22:35:59] [monitor] [系统] 监控进程已启动，开始增量采集终端关键事件
+- [2026-05-19 22:35:59] [4.txt] [用户输入指令] (metadata) |
+- [2026-05-19 22:36:01] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:01] [3.txt] [用户输入指令] cd /home/hw/hw-ros2/ros2source /opt/ros/humble/setup.bashsource install/setup.bashexport FASTDDS_BUILTIN_TRANSPORTS=UDPv4ros2 launch hw_insight planner_integration.launch.py use_rviz:=true
+- [2026-05-19 22:36:03] [1.txt] [ERROR/WARN] WARN  [timesync] time jump detected. Resetting time synchroniser.
+- [2026-05-19 22:36:03] [1.txt] [ERROR/WARN] WARN  [uxrce_dds_client] time sync no longer converged
+- [2026-05-19 22:36:03] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:04] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:05] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:09] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:11] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:18] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:24] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:36] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:37] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:40] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:43] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:44] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:48] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:50] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:51] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:55] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:36:58] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:00] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:01] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:03] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:05] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:08] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:10] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:11] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:14] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:15] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:17] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:19] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:29] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:32] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:35] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:39] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:43] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:49] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:50] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:53] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:37:54] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:01] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:05] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:06] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:08] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:10] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:12] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:14] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:15] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:17] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:26] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:27] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:33] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:36] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:37] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:40] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:41] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:43] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:45] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:48] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:51] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:52] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:54] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:57] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:38:58] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:01] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:02] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:04] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:10] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:13] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:17] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:20] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:24] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:28] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:31] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:34] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:35] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:38] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:41] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:43] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:45] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:47] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:50] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:51] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:54] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:56] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:39:59] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:02] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:04] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:07] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:09] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:12] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:13] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:16] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:20] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:25] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:30] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:34] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:38] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:40] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:42] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:44] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:45] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:49] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:50] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:53] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:40:56] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:00] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:03] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:06] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:08] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:10] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:16] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:17] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:20] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:25] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:27] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:30] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:34] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:37] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:39] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:44] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:48] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:51] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:55] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:56] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:41:59] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:02] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:03] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:07] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:08] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:11] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:15] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:18] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:25] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:29] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:32] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:36] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:38] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:40] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:43] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:47] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:49] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:50] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:54] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:55] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:42:58] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:00] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:02] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:04] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:08] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:13] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:15] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:17] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:19] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:23] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:26] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:27] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:29] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:30] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:33] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:36] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:39] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:40] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:44] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:46] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:47] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:51] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:53] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:57] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:43:58] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:00] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:02] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:03] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:06] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:09] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:11] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:13] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:18] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:23] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:25] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:27] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:32] [1.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:32] [1.txt] [ERROR/WARN] WARN  [simulator_mavlink] Please ensure port 4560 is not blocked by a firewall.
+- [2026-05-19 22:44:32] [1.txt] [ERROR/WARN] WARN  [vehicle_angular_velocity] no gyro selected, using sensor_gyro_fifo:0 1310988
+- [2026-05-19 22:44:32] [1.txt] [ERROR/WARN] WARN  [health_and_arming_checks] Preflight Fail: ekf2 missing data
+- [2026-05-19 22:44:32] [1.txt] [UAV动作] INFO  [commander] Ready for takeoff!
+- [2026-05-19 22:44:32] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:33] [1.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:35] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:39] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:42] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:45] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [planner_velocity_bridge-11] Traceback (most recent call last):
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [text_command_bridge-5] Traceback (most recent call last):
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [move_velocity-4] Traceback (most recent call last):
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [ego_bspline_to_twist_relay-10] Traceback (most recent call last):
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [ERROR] [planner_velocity_bridge-11]: process has died [pid 3431, exit code -2, cmd '/home/hw/hw-ros2/ros2/install/hw_insight/lib/hw_insight/planner_velocity_bridge --ros-args -r __node:=planner_velocity_bridge --params-file /tmp/launch_params_rlnj6q2b --params-file /tmp/launch_params_z2gedzkd --params-file /tmp/launch_params_oa6lhx3t --params-file /tmp/launch_params_cak9p45t --params-file /tmp/launch_params_znkf2xr9'].
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [ERROR] [ego_bspline_to_twist_relay-10]: process has died [pid 3429, exit code -2, cmd '/home/hw/hw-ros2/ros2/install/hw_insight/lib/hw_insight/ego_bspline_to_twist_relay --ros-args -r __node:=ego_bspline_to_twist_relay --params-file /tmp/launch_params_hill4jac --params-file /tmp/launch_params_z346e1px --params-file /tmp/launch_params_31_8vf3_ --params-file /tmp/launch_params_up_gqk_j --params-file /tmp/launch_params_zgqgop1r --params-file /tmp/launch_params_zkxvnxgy --params-file /tmp/launch_params_kg5hapcz'].
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [ERROR] [move_velocity-4]: process has died [pid 3417, exit code -2, cmd '/home/hw/hw-ros2/ros2/install/hw_insight/lib/hw_insight/move_velocity --ros-args -r __node:=move_velocity --params-file /tmp/launch_params_h8p9yqsy'].
+- [2026-05-19 22:44:45] [3.txt] [ERROR/WARN] [ERROR] [text_command_bridge-5]: process has died [pid 3419, exit code -2, cmd '/home/hw/hw-ros2/ros2/install/hw_insight/lib/hw_insight/text_command_bridge --ros-args -r __node:=text_command_bridge --params-file /tmp/launch_params_mki308rm --params-file /tmp/launch_params_an8tjba1 --params-file /tmp/launch_params_vqh41acn'].
+- [2026-05-19 22:44:48] [2.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:44:51] [1.txt] [系统] 终端文件被截断，已重置读取位置
+
+## ===== 会话重新开始 2026-05-19 22:46:19 +0800 =====
+
+- [2026-05-19 22:46:19] [monitor] [系统] 监控进程已启动，开始增量采集终端关键事件
+- [2026-05-19 22:46:19] [1.txt] [用户输入指令] (metadata) clear
+- [2026-05-19 22:46:19] [2.txt] [用户输入指令] (metadata) clear
+- [2026-05-19 22:46:19] [3.txt] [用户输入指令] (metadata) clear
+- [2026-05-19 22:46:19] [4.txt] [用户输入指令] (metadata) clear
+- [2026-05-19 22:46:20] [9.txt] [系统] 发现新终端文件，开始监控
+- [2026-05-19 22:46:21] [4.txt] [ERROR/WARN] [yolo_world_detector-1]   warnings.warn("Unable toimport Axes3D. This may be due to multiple versions of "
+- [2026-05-19 22:46:21] [9.txt] [用户输入指令] cd /home/hw/hw-ros2/ros2
+- [2026-05-19 22:46:21] [9.txt] [用户输入指令] source /opt/ros/humble/setup.bash
+- [2026-05-19 22:46:21] [9.txt] [用户输入指令] source install/setup.bash
+- [2026-05-19 22:46:21] [9.txt] [用户输入指令] export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
+- [2026-05-19 22:46:21] [9.txt] [用户输入指令] ros2 run hw_insight llm_client
+- [2026-05-19 22:46:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:22] [3.txt] [用户输入指令] cd /home/hw/hw-ros2/ros2source /opt/ros/humble/setup.bashsource install/setup.bashexport FASTDDS_BUILTIN_TRANSPORTS=UDPv4ros2 launch hw_insight planner_integration.launch.py use_rviz:=true
+- [2026-05-19 22:46:23] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:23] [9.txt] [LLM推理开始] 选择 LLM 推理后端
+- [2026-05-19 22:46:25] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:27] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:30] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:32] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:35] [1.txt] [ERROR/WARN] WARN  [timesync] time jump detected. Resetting time synchroniser.
+- [2026-05-19 22:46:35] [1.txt] [ERROR/WARN] WARN  [uxrce_dds_client] time sync no longer converged
+- [2026-05-19 22:46:35] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:36] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:37] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:40] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:47] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:50] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:52] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:54] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:57] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:46:59] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:03] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:04] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:07] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:12] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:14] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:15] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:17] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:18] [9.txt] [LLM推理开始] 22:47:17  LLM      LLM 推理中…
+- [2026-05-19 22:47:19] [9.txt] [LLM推理开始] 22:47:17  LLM      推理完成  0.8s
+- [2026-05-19 22:47:19] [9.txt] [UAV动作] 22:47:17  UAV      TAKEOFF          {'altitude': 6.0}
+- [2026-05-19 22:47:21] [1.txt] [UAV动作] INFO  [commander] Takeoff detected
+- [2026-05-19 22:47:22] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:22] [3.txt] [UAV动作] [move_velocity-4] [INFO] [1779202038.063692847] [move_velocity]: Flight requested — activating Offboard stream
+- [2026-05-19 22:47:22] [9.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:22] [9.txt] [UAV动作] USER  uav[TAKEOFF|武装] 请输入指令 ›
+- [2026-05-19 22:47:26] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:29] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:32] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:35] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:36] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:39] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:43] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:44] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:48] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:50] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:51] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:53] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:56] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:47:57] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:00] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:01] [9.txt] [LLM推理开始] 22:48:00  LLM      LLM 推理中…
+- [2026-05-19 22:48:02] [9.txt] [LLM推理开始] 22:48:01  LLM      推理完成  0.9s
+- [2026-05-19 22:48:03] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:06] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:09] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:13] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:17] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:18] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:20] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:20] [9.txt] [LLM推理开始] 22:48:19  LLM      LLM 推理中…
+- [2026-05-19 22:48:21] [9.txt] [LLM推理开始] 22:48:20  LLM      推理完成  0.9s
+- [2026-05-19 22:48:23] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:23] [9.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:23] [9.txt] [UAV动作] USER  uav[TAKEOFF|武装] 请输入指令 › 前进10米再升高4米
+- [2026-05-19 22:48:26] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:29] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:30] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:33] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:37] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:38] [9.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:40] [9.txt] [LLM推理开始] 22:48:39  LLM      LLM 推理中…
+- [2026-05-19 22:48:41] [9.txt] [LLM推理开始] 22:48:40  LLM      推理完成  0.8s
+- [2026-05-19 22:48:44] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:45] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:49] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:49] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202129.305000136] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:49] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202129.315553246] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:49] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202129.326294394] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:49] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202129.337106001] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:49] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202129.347540013] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:49] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202129.358237696] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:49] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202129.368791609] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.346587172] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.356904654] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357154212] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357240564] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357302676] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357363845] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357412032] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357469142] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357525690] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357583160] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.357638648] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368019067] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368215532] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368278463] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368348656] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368402864] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368496973] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368564810] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368624101] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368679941] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:55] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202135.368754618] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.362191486] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.362238236] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.372610805] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.372777134] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.372878247] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.373006309] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.373099887] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.373179882] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.373265933] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.373381139] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.373462564] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.373575337] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.383918885] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384102523] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384174983] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384238720] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384298145] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384354690] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384404263] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384487870] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384550993] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:48:58] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202138.384606584] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:01] [3.txt] [ERROR/WARN] 02141.392911254] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.388280154] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.388485504] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.388584945] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.388675587] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.388756102] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.388835057] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.388926815] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.389016660] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.389102610] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.389184515] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.399581688] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.399812376] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.399909008] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.400011012] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.400111122] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.400213101] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.400311646] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.400403135] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.400471975] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:04] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202144.400535711] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.388673400] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.388748617] [distinctiveTrajs]: Can't find the new base points at the opposite within the threshold. i=0, j=0
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.388761143] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.388849297] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.399254301] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.399471783] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.399567217] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.399645827] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.399864103] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.400058671] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.400173831] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.400295508] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.400420777] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.400534119] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.410982433] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411172170] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411268403] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411335914] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411400094] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411458550] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411507097] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411551401] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411637918] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:07] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202147.411731739] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.394441242] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.404839928] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405055861] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405127130] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405227231] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405295576] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405367952] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405430328] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405483516] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405535786] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.405582384] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.415976973] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416187911] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416262612] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416352593] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416418085] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416473482] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416545315] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416603411] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416650678] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:10] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202150.416753284] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.424469461] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.424674802] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.424788558] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.424889681] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.424979507] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.425087904] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.425177643] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.425244584] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.425326812] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.425394348] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.435830170] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436027825] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436103937] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436166544] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436222601] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436277537] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436331353] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436383461] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436435199] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:16] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202156.436514132] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [系统] 终端文件被截断，已重置读取位置
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.447692420] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.447749967] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.447798644] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458107409] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458324921] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458396547] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458455780] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458539931] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458621647] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458728351] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458795388] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458844848] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.458898719] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.470020427] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.470392870] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.470550805] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.470692737] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.470780746] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.470899884] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.471071314] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.471227682] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.471329923] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.
+- [2026-05-19 22:49:25] [3.txt] [ERROR/WARN] [ego_planner_node-9] [WARN] [1779202165.471410183] [check_collision_and_rebound]: WARN! terminal point of the current trajectory is in obstacle, skip this planning.

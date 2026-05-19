@@ -132,9 +132,10 @@ void GridMap::initMap(rclcpp::Node::SharedPtr node)
 
     // Camera optical (RDF: X-right Y-down Z-forward) → AirSim NED body
     // (X-forward Y-right Z-down).  Camera mount: Pitch=0 (level forward),
-    // position (0.1, 0, -0.08) in NED body = 10 cm forward, 8 cm above CG.
+    // position (0.3, 0, -0.08) in NED body = 30 cm forward, 8 cm above CG.
+    // Matches AirSim settings.json: "X": 0.3, "Y": 0, "Z": -0.08
     md_.cam2body_ <<
-         0.0,  0.0,  1.0,   0.1,
+         0.0,  0.0,  1.0,   0.3,
          1.0,  0.0,  0.0,   0.0,
          0.0,  1.0,  0.0,  -0.08,
          0.0,  0.0,  0.0,   1.0;
@@ -166,6 +167,10 @@ void GridMap::initMap(rclcpp::Node::SharedPtr node)
 
         sync_image_odom_ = std::make_shared<message_filters::Synchronizer<SyncPolicyImageOdom>>(
             SyncPolicyImageOdom(100), *depth_sub_, *odom_sub_);
+        // AirSim ROS wrapper 发布深度图相对 PX4 odom 有 1-5 秒的延迟（图像处理时间），
+        // 必须显著放宽 ApproximateTime sync 容差，否则消息对永远匹配不上。
+        sync_image_odom_->getPolicy()->setMaxIntervalDuration(
+            rclcpp::Duration::from_seconds(10.0));
         sync_image_odom_->registerCallback(
             std::bind(&GridMap::depthOdomCallback, this, std::placeholders::_1, std::placeholders::_2));
     }
@@ -176,6 +181,10 @@ void GridMap::initMap(rclcpp::Node::SharedPtr node)
 
     indep_odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
         "grid_map/odom", rclcpp::QoS(100).best_effort(), std::bind(&GridMap::odomCallback, this, std::placeholders::_1));
+
+    camera_info_sub_ = node_->create_subscription<sensor_msgs::msg::CameraInfo>(
+        "grid_map/camera_info", rclcpp::QoS(10),
+        std::bind(&GridMap::cameraInfoCallback, this, std::placeholders::_1));
 
     // 定时器
     occ_timer_ = node_->create_wall_timer(
@@ -292,9 +301,6 @@ void GridMap::projectDepthImage()
                 proj_pt(2) = depth;
 
                 proj_pt = camera_r * proj_pt + md_.camera_pos_;
-
-                if (u == 320 && v == 240)
-                    std::cout << "depth: " << depth << std::endl;
                 md_.proj_points_[md_.proj_points_cnt++] = proj_pt;
             }
         }
@@ -319,15 +325,16 @@ void GridMap::projectDepthImage()
                 for (int u = mp_.depth_filter_margin_; u < cols - mp_.depth_filter_margin_;
                      u += mp_.skip_pixel_)
                 {
-                    depth = (*row_ptr) * inv_factor;
+                    // 先保存当前像素原始值，再移动指针
+                    // 原代码 bug：row_ptr 先 +skip，再 *row_ptr==0 检查的是下一像素，
+                    // 导致无返回像素(0)的 depth=0 被投影到相机光心产生假障碍。
+                    const uint16_t raw_val = *row_ptr;
+                    depth = raw_val * inv_factor;
                     row_ptr = row_ptr + mp_.skip_pixel_;
 
-                    // filter depth
-                    // depth += rand_noise_(eng_);
-                    // if (depth > 0.01) depth += rand_noise2_(eng_);
-
-                    if (*row_ptr == 0)
+                    if (raw_val == 0)
                     {
+                        // 无返回/无效像素：当作自由空间光线端点
                         depth = mp_.max_ray_length_ + 0.1;
                     }
                     else if (depth < mp_.depth_filter_mindist_)
@@ -1036,9 +1043,48 @@ void GridMap::extrinsicCallback(const nav_msgs::msg::Odometry::ConstPtr& odom)
     md_.cam2body_(3, 3) = 1.0;
 }
 
+void GridMap::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
+{
+    if (msg->k[0] <= 0.0)
+        return;
+
+    const double new_fx = msg->k[0];
+    const double new_fy = msg->k[4];
+    const double new_cx = msg->k[2];
+    const double new_cy = msg->k[5];
+
+    if (!camera_info_received_ || std::abs(new_fx - mp_.fx_) > 1e-3 || std::abs(new_cx - mp_.cx_) > 1e-3)
+    {
+        RCLCPP_INFO(node_->get_logger(),
+                    "grid_map: camera intrinsics from /camera_info => "
+                    "fx=%.2f fy=%.2f cx=%.2f cy=%.2f (was fx=%.2f cx=%.2f) image=%ux%u",
+                    new_fx, new_fy, new_cx, new_cy, mp_.fx_, mp_.cx_, msg->width, msg->height);
+    }
+
+    mp_.fx_ = new_fx;
+    mp_.fy_ = new_fy;
+    mp_.cx_ = new_cx;
+    mp_.cy_ = new_cy;
+    camera_info_received_ = true;
+}
+
 void GridMap::depthOdomCallback(const sensor_msgs::msg::Image::ConstPtr& img,
                                 const nav_msgs::msg::Odometry::ConstPtr& odom)
 {
+    // Diagnostic: every 30 sync events log camera/odom pose so we can verify
+    // depth-odom synchronisation is working (otherwise grid_map stays empty).
+    static int s_sync_cnt = 0;
+    if ((++s_sync_cnt) <= 3 || s_sync_cnt % 30 == 0) {
+        rclcpp::Time t_img(img->header.stamp);
+        rclcpp::Time t_odom(odom->header.stamp);
+        double dt = (t_img - t_odom).seconds();
+        RCLCPP_INFO(node_->get_logger(),
+            "[depthOdomCB #%d] dt=%.3fs odom=(%.2f,%.2f,%.2f) img_size=%dx%d enc=%s",
+            s_sync_cnt, dt,
+            odom->pose.pose.position.x, odom->pose.pose.position.y, odom->pose.pose.position.z,
+            img->width, img->height, img->encoding.c_str());
+    }
+
     /* get pose */
     Eigen::Quaterniond body_q = Eigen::Quaterniond(odom->pose.pose.orientation.w,
                                                    odom->pose.pose.orientation.x,
@@ -1067,6 +1113,23 @@ void GridMap::depthOdomCallback(const sensor_msgs::msg::Image::ConstPtr& img,
     }
     cv_ptr->image.copyTo(md_.depth_image_);
 
-    md_.occ_need_update_ = true;
+    if (isInMap(md_.camera_pos_))
+    {
+        md_.occ_need_update_ = true;
+    }
+    else
+    {
+        static int s_oom_warn = 0;
+        if ((++s_oom_warn) % 100 == 1)
+            RCLCPP_WARN(node_->get_logger(),
+                "grid_map: camera_pos (%.2f,%.2f,%.2f) out of map bounds "
+                "[%.1f,%.1f] x [%.1f,%.1f] x [%.1f,%.1f] (#%d)",
+                md_.camera_pos_(0), md_.camera_pos_(1), md_.camera_pos_(2),
+                mp_.map_min_boundary_(0), mp_.map_max_boundary_(0),
+                mp_.map_min_boundary_(1), mp_.map_max_boundary_(1),
+                mp_.map_min_boundary_(2), mp_.map_max_boundary_(2),
+                s_oom_warn);
+        md_.occ_need_update_ = false;
+    }
     md_.flag_use_depth_fusion = true;
 }

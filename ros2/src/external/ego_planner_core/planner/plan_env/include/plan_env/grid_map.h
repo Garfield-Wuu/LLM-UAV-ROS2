@@ -8,6 +8,7 @@
 #include <iostream>
 #include <random>
 #include <nav_msgs/msg/odometry.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <queue>
 #include <rclcpp/rclcpp.hpp>
 
@@ -201,6 +202,7 @@ private:
     void depthPoseCallback(const sensor_msgs::msg::Image::ConstPtr& img,
                            const geometry_msgs::msg::PoseStamped::ConstPtr& pose);
     void extrinsicCallback(const nav_msgs::msg::Odometry::ConstPtr& odom);
+    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
     void depthOdomCallback(const sensor_msgs::msg::Image::ConstPtr& img, const nav_msgs::msg::Odometry::ConstPtr& odom);
     void cloudCallback(const sensor_msgs::msg::PointCloud2::ConstPtr& img);
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom);
@@ -239,6 +241,8 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr indep_cloud_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr indep_odom_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr extrinsic_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
+    bool camera_info_received_ = false;
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_inf_pub_;

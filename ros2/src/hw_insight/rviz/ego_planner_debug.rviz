@@ -7,6 +7,7 @@ Panels:
         - /OccupancyInflate1
         - /RGBCamera1
         - /DepthCamera1
+        - /YOLOOverlay1
       Splitter Ratio: 0.5
     Tree Height: 700
   - Class: rviz_common/Selection
@@ -181,11 +182,25 @@ Visualization Manager:
         Reliability Policy: Best Effort
         Durability Policy: Volatile
         History Policy: Keep Last
-      Max Value: 20
+      Max Value: 50
       Median window: 5
       Min Value: 0
       Normalize Range: false
       Queue Size: 1
+    - Class: rviz_default_plugins/Image
+      Name: YOLOOverlay
+      Enabled: true
+      Topic:
+        Value: /uav/camera/detections_overlay
+        Depth: 5
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Normalize Range: true
+      Queue Size: 2
 
   Enabled: true
   Global Options:
@@ -204,7 +219,7 @@ Visualization Manager:
         Value: /initialpose
     - Class: rviz_default_plugins/SetGoal
       Topic:
-        Value: /goal_pose
+        Value: /uav/target_goal
     - Class: rviz_default_plugins/PublishPoint
       Single click: true
       Topic:
