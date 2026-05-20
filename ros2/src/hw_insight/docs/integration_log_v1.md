@@ -23,7 +23,7 @@ ros2/src/external/ego_planner_core/
 
 - 映射配置文件：`hw_insight/config/mapping_config.yaml`
 - 目标输入链路：`/uav/target_goal -> /goal_pose`
-- 状态输入链路：`/vins/odometry -> {odom_world, grid_map/odom}`
+- 状态输入链路：`/uav/odom_enu -> {odom_world, grid_map/odom}`（由 `odom_ned_to_enu_node` 从 AirSim/PX4 NED odom 桥接；不接入 VINS）
 - 感知输入链路：`/uav/camera/points -> grid_map/cloud`
 - 输出执行链路：
   - `/uav/ego_planner/bspline` (`traj_utils/Bspline`)
@@ -91,7 +91,7 @@ export FASTDDS_BUILTIN_TRANSPORTS=UDPv4
   - `/ego_bspline_to_twist_relay`
   - `/planner_velocity_bridge`
 - `ros2 node info /ego_planner_node` 可见关键订阅/发布：
-  - 订阅：`/uav/target_goal`, `/vins/odometry`, `/uav/camera/points`
+  - 订阅：`/uav/target_goal`, `/uav/odom_enu`, `/uav/camera/points`
   - 发布：`/uav/ego_planner/bspline`, `grid_map/*`, 可视化 marker
 
 ### 5.2 链路验证（已通过）

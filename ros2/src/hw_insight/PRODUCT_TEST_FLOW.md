@@ -29,10 +29,10 @@
 | TUI 监控 | 当前主链 | ✅ 已完成 | `gcs_dashboard.py` |
 | 闭环回归测试 | 当前主链 | ✅ 已完成 | `flight_regression_runner.py` |
 | YOLO-World 开放词汇检测（GPU）| 目标架构 | ✅ 已实现 | `yolo_world_detector.py`；torch cu128 / CUDA 12.9 已验证 |
-| 深度图 3D Grounding | 目标架构 | ✅ 已实现 | `target_grounding_node.py` |
+| 深度图视觉定位支撑 | 支撑能力 | ✅ 已实现 | `target_grounding_node.py`；论文主体不作为核心贡献展开 |
 | `/uav/target_goal` 目标发布 | 目标架构 | ✅ 已实现 | `semantic_target_tf_node.py` / `semantic_goal_to_planner.py` |
 | LLM → 视觉搜索 → 自动飞行（FIND_AND_GOTO）| 目标架构 | ✅ 已实现 | `llm_client.py` + `text_command_bridge.py` S11 |
-| VINS 状态估计 | 目标架构 | 📋 待接入 | 当前 world pose 先使用 AirSim `odom_local_ned` |
+| AirSim/PX4 位姿与坐标桥接 | 当前主链 | ✅ 已实现 | `/airsim_node/PX4/odom_local_ned` → `/uav/odom_enu`；不接入 VINS |
 | Ego-Planner 仿真避障链 | 目标架构 | ⚠️ 仿真部分接入 | `uav_sim.launch.py`（推荐）/ `planner_integration.launch.py` / `ego_planner_integration.launch.py`；`planner_velocity_bridge` ENU→NED |
 | 统一仿真 launch（飞控 + 可选 EGO） | 当前主链 | ✅ 已具备 | `launch/uav_sim.launch.py`（`enable_ego_planner`、`use_rviz`） |
 | MAVROS 2 桥接主链 | 目标架构 | ❌ 未实现 | 当前主链为 `px4_msgs + uXRCE-DDS` |
@@ -163,11 +163,10 @@
 
 ## 6. 非当前阶段测试项
 
-以下测试项属于当前版本之后的后续阶段，不应纳入本轮发布门槛：
+以下测试项属于当前版本之后的后续阶段，或属于论文核心问题之外的系统支撑验证，不应纳入本轮发布门槛：
 
-- VINS-Fusion 位姿接入后的稳定性验证
 - 复杂属性 prompt 的泛化精度系统验证（不同场景、目标遮挡、距离变化下的稳定性）
-- VINS 漂移评估
+- AirSim/PX4 odom 下 world frame 一致性与坐标跳变评估
 - Ego-Planner 在复杂动态障碍下的系统级验收（当前仿真已可演示局部避障；FIND_AND_GOTO 仍多为直线 GOTO_NED，与 planner 深度联动待产品化）
 - 多目标同时出现时 FIND_AND_GOTO 的目标选择策略优化
 
@@ -214,4 +213,4 @@ ros2 topic pub --once /uav/target_query std_msgs/msg/String "data: car"
 3. 深度图读数有效性与时间戳对齐验证
 4. `/uav/semantic_targets_world` 稳定性验证（无人机运动时 world 点是否跳变）
 5. EGO-Planner 与 FIND_AND_GOTO 联动（语义发现目标后稳定走 `/uav/target_goal` + planner 模式，避免与直线 GOTO 语义混淆）
-6. VINS-Fusion 接入后 world frame 精度提升验证
+6. 论文主实验回归：JSON 指令生成成功率、任务原语识别准确率、任务完成率

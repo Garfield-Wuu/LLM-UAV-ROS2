@@ -10,7 +10,7 @@
 > - 第三次：LLM 联调修复 + 坐标系修正 + 多步顺序执行
 > - 第四次：`58a7005f-b681-4d1c-9553-6da32b3d45d3`（EGO-Planner、栅格地图、RViz、WSL2 DDS、AirSim 相机）
 > - 第五次：`llm_client.py` 交互式 provider/model 选择、Ollama warm-up、`<think>` 日志、鲁棒 JSON 提取、文档同步
-> - 第六次：技术路线锁定（YOLO-World + VINS-Fusion + EGO-Planner）；三份核心文档全面同步
+> - 第六次：历史技术路线锁定（YOLO-World + VINS-Fusion + EGO-Planner）；后续论文重构中已取消 VINS-Fusion 主线
 > - 第七次：Git 仓库初始化 `/home/hw/hw-ros2/`；SSH 配置；推送至 GitHub `Garfield-Wuu/LLM-UAV-ROS2`；README 编写
 > - 第八次：YOLO-World 本地部署；依赖安装与 patch；CLIP 模型离线化；推理测试脚本；CPU/GPU 验证
 > - 第九次：视觉语义闭环 ROS 2 集成（4 个新节点 + launch + RViz marker + 文档同步）
@@ -36,8 +36,8 @@
 | LLM | Groq API / Ollama（含远程服务；默认可读 `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL`）| ✅ **已接入并增强** |
 | 视觉语义识别 | **YOLO-World**（open-vocabulary 目标检测，`prompt-then-detect` 范式）| ✅ ROS 2 已集成 |
 | 几何 Grounding | AirSim DepthPlanar/DepthPerspective + 逆投影 + tf2 坐标变换链 | ✅ 已实现（先用 AirSim odom 验证） |
-| 状态估计 | **VINS-Fusion**（多传感器优化估计，提供 world frame 位姿）| 📋 规划中 |
-| 局部轨迹规划 | **EGO-Planner**（ESDF-free gradient-based，VINS 位姿驱动）| ⚠️ 仿真部分接入 |
+| 位姿与坐标 | **AirSim/PX4 里程计** + `odom_ned_to_enu_node` | ✅ 已实现（**不接入 VINS**） |
+| 局部轨迹规划 | **EGO-Planner**（输入 `/uav/odom_enu`） | ⚠️ 仿真部分接入 |
 | 地面站 | QGroundControl（可选监控）| 可选 |
 
 **工作目录**：`/home/hw/hw-ros2/ros2/src/hw_insight/`  
@@ -57,7 +57,7 @@
 | 视觉语义识别层 | **YOLO-World** | open-vocabulary 目标检测，输出 bbox / 置信度 |
 | 几何 Grounding 层 | AirSim DepthPlanar + 逆投影 + tf2 | 2D bbox → camera frame 3D 点；中位数深度鲁棒估计 |
 | 坐标系变换层 | tf2（camera→body→world） | 固定外参 + 实时位姿完成坐标系对齐 |
-| 状态估计层 | **VINS-Fusion** | world/map frame 高精度位姿，用于目标世界坐标生成 |
+| 位姿与坐标层 | **AirSim/PX4 odom** + NED→ENU 桥接 | world 帧位姿，用于目标世界坐标与规划（无 VINS） |
 | 轨迹规划层 | **EGO-Planner** | `target_position_world` → 局部可飞轨迹（ESDF-free，梯度优化） |
 | 控制执行层 | PX4 SITL + move_velocity | Offboard setpoint 跟踪，飞控底层执行 |
 
@@ -77,7 +77,7 @@ yolo_world_detector.py + target_grounding_node.py + semantic_target_tf_node.py
   ├── YOLO-World 检测 → bbox（像素坐标）
   ├── 订阅 /airsim_node/PX4/CameraDepth1/DepthPlanar（深度图）
   ├── bbox 区域中位数深度 + 相机内参逆投影 → camera frame 3D 点
-  └── camera→body→world 变换（当前依赖 AirSim odom，后续切 VINS-Fusion）
+  └── camera→body→world 变换（依赖 AirSim/PX4 odom，不接入 VINS-Fusion）
   │
   ▼
 target_position_world = (x, y, z)
@@ -100,11 +100,11 @@ planner_velocity_bridge.py（ENU 线速度 → NED → HWSimpleKeyboardInfo）
 
 - 深度类型须固定使用 `DepthPlanar`（相机平面深度）或 `DepthPerspective`（沿射线方向深度）之一；逆投影公式必须与之匹配，不可混用。
 - 内部规划使用 **ENU `world`**；`planner_velocity_bridge` 在送往 PX4 前将线速度 **ENU→NED**；与 AirSim / `odom_local_ned` 对齐时依赖 `odom_ned_to_enu_node` + 静态 TF `world`→`PX4`。
-- VINS-Fusion 仿真验证阶段可先用 `odom_local_ned` 替代，接入 VINS 后只需 remap，不改节点逻辑。
+- 位姿基线固定为 `odom_local_ned` + NED→ENU 桥接；不再规划 VINS-Fusion remap 路线。
 
 **论文表述建议**：
 
-> 本文构建了一套面向自然语言任务执行的无人机自主决策系统。系统首先利用大语言模型对用户指令进行语义解析，生成目标类别、属性与动作需求等结构化任务描述；随后，视觉语义识别模块采用 YOLO-World 实现开放词汇目标检测，从机载 RGB 图像中识别符合语言描述的目标实体；在此基础上，结合 AirSim 深度图像与相机成像模型，完成目标的三维几何 grounding，并借助 VINS-Fusion 输出的位姿信息将目标从相机坐标系对齐到世界坐标系；最后，将目标 world frame 坐标输入 EGO-Planner，生成局部可飞行轨迹，并由飞控系统完成轨迹跟踪与任务执行。
+> 本文重构后聚焦“自然语言任务到物理飞行行为的可靠闭环转换”。系统通过 Ollama 开源大语言模型与 ROS 2 agent 将用户自然语言解析为 JSON 结构化任务原语，经鲁棒提取、合法性校验和参数约束后映射到 PX4 Offboard 可执行的飞行动作，并在 AirSim 中形成可观测闭环。YOLO-World 与 EGO-Planner 作为视觉感知和轨迹规划支撑能力保留，但不作为论文核心贡献或主要实验评价对象；系统位姿基线为 AirSim/PX4 odom 与 NED/ENU 桥接，不接入 VINS-Fusion。
 
 ---
 
@@ -564,13 +564,13 @@ plan 格式已实现。LLM 可输出 `{"plan": [...]}` 多步计划，节点按�
 - ✅ body→world 动态变换（订阅 AirSim `odom_local_ned`；NED→ENU 转换）
 - ✅ 输出 `/uav/semantic_targets_world`（JSON）+ `/uav/semantic_target_marker`（RViz Sphere）
 - ✅ 可选直接发布 `/uav/target_goal`（PoseStamped）给 EGO-Planner
-- ✅ 参数化 `odom_topic`，后续切 VINS-Fusion 仅需改 launch 参数
+- ✅ 参数化 `odom_topic`；当前路线固定使用 AirSim/PX4 odom，不再规划 VINS-Fusion
 - 🔲 验收：world 点在目标静止时基本稳定，距离变化方向正确
 
-#### P5-D：VINS-Fusion 位姿接入
+#### P5-D：AirSim/PX4 位姿与坐标桥接
 
-- ✅ 仿真阶段：`semantic_target_tf_node` 已默认用 `odom_local_ned`（零代码修改切换）
-- 🔲 真机/高精度阶段：接入 VINS-Fusion mono + IMU，改 launch `odom_topic`
+- ✅ `semantic_target_tf_node` 默认使用 `odom_local_ned`
+- ✅ `odom_ned_to_enu_node` 输出 `/uav/odom_enu` 并广播 `world`→`base_link`
 - 🔲 验收：`target_position_world` 在无人机移动期间保持相对稳定
 
 #### P5-E：target_position_world → EGO-Planner 接口封装

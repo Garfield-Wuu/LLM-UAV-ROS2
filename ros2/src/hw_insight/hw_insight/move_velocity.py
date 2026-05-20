@@ -34,7 +34,12 @@ class MoveVelocity(Node):
     def __init__(self) -> None:
         super().__init__('move_velocity')
         self.declare_parameter('command_topic', '/hw_insight/keyboard_velocity')
+        # +1: positive yawspeed = right/clockwise (matches upper-layer yaw_rate).
+        # -1: invert at PX4 boundary when the vehicle stack uses opposite sign
+        #     (some AirSim+PX4 SITL builds). Tune once per sim/real target.
+        self.declare_parameter('yaw_rate_sign', 1.0)
         command_topic = str(self.get_parameter('command_topic').value)
+        self.yaw_rate_sign = float(self.get_parameter('yaw_rate_sign').value)
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -131,9 +136,8 @@ class MoveVelocity(Node):
         msg.velocity = [x, y, z]
         msg.acceleration = [float('nan'), float('nan'), float('nan')]
         msg.yaw = float('nan')
-        # AirSim+PX4 SITL uses opposite yawspeed sign from standard NED convention:
-        # positive yawspeed in this setup = counter-clockwise (left), so negate.
-        msg.yawspeed = -yawspeed
+        # Upper layer: positive = right/clockwise. Apply yaw_rate_sign only here.
+        msg.yawspeed = self.yaw_rate_sign * yawspeed
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(msg)
 

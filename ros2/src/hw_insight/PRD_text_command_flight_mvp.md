@@ -10,7 +10,7 @@
 | 上一版摘要 | v5.5：§14、T_YOLO、`on_query` 默认、RViz 叠图与文档索引 |
 | 适用项目 | `hw_insight`（PX4 + AirSim + ROS 2 Humble） |
 | 代码仓库 | `git@github.com:Garfield-Wuu/LLM-UAV-ROS2.git`（branch: main） |
-| 当前阶段 | Phase 0/1 已完成；**Phase 2 进行中**：语义感知链已落地；**AirSim + EGO-Planner 仿真避障与执行链已可联调**（`uav_sim.launch.py`、ENU/NED 桥、RViz）；当前重点仍为视觉任务协议深化、VINS 接入与真机级闭环验收 |
+| 当前阶段 | Phase 0/1 已完成；**Phase 2 进行中**：语义感知链已落地；**AirSim + EGO-Planner 仿真避障与执行链已可联调**（`uav_sim.launch.py`、ENU/NED 桥、RViz）；位姿统一为 **AirSim/PX4 里程计**（**不接入 VINS-Fusion**）；当前重点为视觉任务协议深化与规划链联动 |
 | 文档定位 | 同时描述目标架构、当前实现和阶段化开发路线；**日常命令以 §9 为准**。维护边界见 [`docs/DOCUMENTATION_INDEX.md`](docs/DOCUMENTATION_INDEX.md)。 |
 
 ---
@@ -36,8 +36,8 @@
 |------|--------------|----------|------|
 | 大脑（Cognition） | Ollama（Llama 3 / Gemma） | ⚠️ 部分完成 | `llm_client.py` 已支持 Groq / Ollama 双后端、交互式模型选择、远端 Ollama 环境变量、冷启动预热、鲁棒 JSON 提取与 `<think>` 推理日志；**S11 新增**：`FIND_AND_GOTO` 视觉语义搜索 action（12 个 action，含 8 个别名），LLM 可直接输出视觉任务指令 |
 | 视觉（Perception） | **YOLO-World** + AirSim Depth Camera | ✅ 核心链路已实现 | YOLO-World 已在 `/home/hw/YOLO-World/` 本地部署；ROS 2 侧 **4 节点链**（检测 / grounding / TF / 可选 goal）；**`yolo_world_detector`** 支持 **`inference_mode=on_query`**（按 `/uav/target_query` 单次推理）；**`semantic_perception.launch.py` 默认 `on_query` + `publish_target_goal=false`**，避免联调时误发规划目标；**`detections_image_overlay`** 随 **`ego_planner_integration`** 在 RViz 叠画 bbox，并可叠加 **`depth_m`**（订阅 `/uav/semantic_targets_camera`）；联调手册见 **`hw_insight/docs/yolo_world_airsim_online_test.md`**；`FIND_AND_GOTO` 仍经 `text_command_bridge` → `/uav/target_query` → 视觉 → `GOTO_NED` |
-| 定位（State Estimation） | **VINS-Fusion**（已选定） | ❌ 未实现 | 多传感器优化状态估计，提供 world frame 高精度位姿；仿真阶段以 `odom_local_ned` 替代，真机阶段接入 VINS-Fusion mono + IMU |
-| 规划（Planning） | **EGO-Planner**（已选定） | ⚠️ 部分接入 | EGO-Planner（ROS 2）已接入仿真最小闭环；可用 `uav_sim.launch.py enable_ego_planner:=true` 与飞控链一并启动；`planner_velocity_bridge` 将规划器 **ENU world** 线速度转换为 **PX4 NED** 再送入 `move_velocity`；Fast-Planner 不再作为候选；完整路线下将切换至 VINS-Fusion 位姿驱动 |
+| 位姿与坐标 | **AirSim/PX4 里程计** + `odom_ned_to_enu_node` | ✅ 已实现 | NED：`/airsim_node/PX4/odom_local_ned`；ENU：`/uav/odom_enu` + TF `world`→`base_link`；**不接入 VINS-Fusion** |
+| 规划（Planning） | **EGO-Planner**（已选定） | ⚠️ 部分接入 | EGO-Planner（ROS 2）已接入仿真最小闭环；可用 `uav_sim.launch.py enable_ego_planner:=true` 与飞控链一并启动；`planner_velocity_bridge` 将规划器 **ENU world** 线速度转换为 **PX4 NED** 再送入 `move_velocity`；位姿输入为 `/uav/odom_enu`（由 AirSim NED odom 桥接） |
 | 通信与框架 | ROS 2 Humble + MAVROS 2 | ⚠️ 部分完成 | ROS 2 Humble 已落地；当前飞控通信主链实际使用 `px4_msgs + uXRCE-DDS`，尚未接入 MAVROS 2 |
 | 执行与仿真 | PX4 Offboard + AirSim | ✅ 已实现 | 已形成稳定可复现的最小闭环 |
 | 可观测性 | TUI + 状态回传 + 回归测试 | ✅ 已实现 | 已有地面站、状态流、回归 runner |
@@ -46,31 +46,35 @@
 
 ## 4. 分层架构定义
 
-### 4.1 目标架构（最终形态）
+### 4.1 目标架构（最终形态，无 VINS）
+
+> 架构详图见 [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)。
 
 ```
 用户自然语言指令
     │
     ▼
 llm_client.py（任务理解层）
-    │  结构化任务描述：target_category / target_attribute / action
+    │  intent 槽位 / JSON action + 安全校验
     ▼
-yolo_world_detector.py + target_grounding_node.py + semantic_target_tf_node.py
-    ├── YOLO-World 开放词汇检测（输入 AirSim RGB + 文本 prompt）
-    ├── AirSim DepthPlanar + 相机内参逆投影（camera frame 3D 点）
-    └── camera → body → world 坐标变换
-    │  目标 world 坐标 /uav/target_goal
-    ▼
-VINS-Fusion（状态估计层，提供 world frame 位姿）
-    │  高精度位姿 /vins_estimator/odometry
-    ▼
-EGO-Planner（局部轨迹规划层，world 为 **ENU**）
-    │  B-spline → Twist(ENU) → **ENU→NED**（`planner_velocity_bridge`）→ /hw_insight/keyboard_velocity
+text_command_bridge.py（任务执行层）
+    ├── 飞行动作：MOVE_REL / GOTO_NED / FIND_AND_GOTO …
+    └── FIND_AND_GOTO → /uav/target_query
+            │
+            ▼
+yolo_world_detector + target_grounding + semantic_target_tf（可选语义链）
+    ├── YOLO-World（RGB + 文本 prompt）
+    ├── DepthPlanar 逆投影 → camera 3D
+    └── 依赖 AirSim odom（NED）→ ENU world 目标点
+            │
+            ▼
+EGO-Planner（可选，输入 /uav/odom_enu + 点云）
+    │  B-spline → planner_velocity_bridge（ENU→NED）
     ▼
 move_velocity.py + PX4 SITL（控制执行层）
     │
     ▼
-AirSim / Real Drone
+AirSim / 真机（真机仍用 PX4 里程计 + 外参，不依赖 VINS）
 ```
 
 ### 4.2 当前已实现架构（代码现状）
@@ -129,7 +133,7 @@ PX4 SITL + AirSim
 
 **Launch 修改提醒**：`ros2 launch hw_insight …` 使用 **`install/share`** 下已安装的 launch；只改 `src` 后须 `colcon build --packages-select hw_insight && source install/setup.bash`。
 
-结论：当前系统已具备语义理解层、动作执行层与基础可观测层，并在仿真侧接入了规划链路；**在叠加语义感知链时**，`FIND_AND_GOTO` 经 `/uav/target_query` 的端到端闭环已接通（场景与阈值联调仍属验收范畴）。**「先视觉后进 LLM」**编排、VINS 位姿源与真机级规划闭环仍未完成。
+结论：当前系统已具备语义理解层、动作执行层与基础可观测层，并在仿真侧接入了规划链路；**在叠加语义感知链时**，`FIND_AND_GOTO` 经 `/uav/target_query` 的端到端闭环已接通（场景与阈值联调仍属验收范畴）。位姿统一为 **AirSim/PX4 里程计**（**不接入 VINS-Fusion**）。**「先视觉后进 LLM」**编排与真机级规划闭环仍为可选后续项。
 
 ---
 
@@ -198,7 +202,7 @@ PX4 SITL + AirSim
 
 ## 6. 未实现但已纳入目标架构的模块
 
-以下模块中，视觉语义感知链已完成最小闭环；后续重点转为 VINS、视觉任务协议与完整 planner 联调：
+以下模块中，视觉语义感知链已完成最小闭环；后续重点转为视觉任务协议与 EGO-Planner 深度联动（位姿沿用 AirSim/PX4 里程计，见 [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)）：
 
 ### 6.1 视觉语义识别与几何 Grounding 层
 
@@ -212,27 +216,26 @@ PX4 SITL + AirSim
 - **`yolo_world_detector`**：支持 **`continuous`** / **`on_query`**（`launch` 参数 `inference_mode`）；**`semantic_perception.launch.py` 默认 `on_query`**，避免无指令时 GPU 持续推理。
 - 接收来自任务理解层或联调终端的文本 prompt（`/uav/target_query`），使用 YOLO-World 进行开放词汇目标检测，输出 bbox / 置信度。
 - 对 bbox 区域提取深度信息，取 **中位数** 作为鲁棒深度估计，结合相机内参 `(fx, fy, cx, cy)` 完成逆投影，恢复 camera frame 3D 坐标。
-- 通过 `camera frame → body frame → world frame` 完成坐标变换（当前先使用 AirSim `odom_local_ned`，后续切 VINS-Fusion）。
+- 通过 `camera frame → body frame → world frame` 完成坐标变换（位姿源：**AirSim `odom_local_ned`**，经 NED→ENU 桥接供规划与 RViz 使用）。
 - 发布 `/uav/semantic_targets_world`，并可选发布 `/uav/target_goal`（`PoseStamped`）。
 
 选型说明：YOLO-World 的 `prompt-then-detect` 范式将词汇嵌入重参数化进模型权重，支持任意类别文本描述，推理效率接近标准 YOLO，适合 `person`、`yellow clothes person`、`vehicle near building` 等开放表达目标。
 
 当前状态：**YOLO-World 本地部署 + ROS 2 语义感知链均已实现**；联调步骤与 RViz 叠图见 **`hw_insight/docs/yolo_world_airsim_online_test.md`**。**`FIND_AND_GOTO`** 路径下 **`LLM → text_command_bridge → /uav/target_query → 视觉链 → GOTO_NED →（planner 模式）/uav/target_goal`** 已具备代码闭环，须在运行 **`planner_integration` / `uav_sim` 等主链的同时另启 `semantic_perception`**。待产品化/增强项：**检测结果先进 LLM prompt 再规划**、多目标/超时/抢占策略、开放词（如 `red car`）在各类场景下的稳定验收。
 
-### 6.2 状态估计层
+### 6.2 位姿与坐标服务层
 
-目标节点：`vins_estimator`（VINS-Fusion）
+目标节点：`odom_ned_to_enu_node`；位姿输入话题 `/airsim_node/PX4/odom_local_ned`
 
-核心技术选型：**VINS-Fusion**（基于优化的多传感器状态估计器，官方支持 mono/stereo + IMU）
+核心技术选型：**AirSim / PX4 里程计** + **NED↔ENU 集中桥接**（**不接入 VINS-Fusion**）
 
-计划职责：
+职责：
 
-- 提供无人机在 world/map frame 下的高频、连续、鲁棒位姿估计。
-- 为几何 Grounding 层的 `camera → world` 坐标变换提供实时位姿。
-- 在 GPS 不可靠或复杂室内/室外环境中增强导航稳定性。
-- 仿真阶段以 `odom_local_ned`（AirSim 提供）作为位姿源替代；真机阶段接入 VINS-Fusion mono + IMU，通过 remap 切换，其余节点不变。
+- 为几何 Grounding、EGO-Planner、RViz 提供统一 **ENU `world`** 帧与 **`/uav/odom_enu`**。
+- 飞控执行层仍使用 **NED**；跨层转换仅在桥接节点与 `text_command_bridge` 内完成。
+- 真机阶段沿用 **PX4 本地位置/里程计** + 外参标定，不引入 VINS 路线。
 
-当前状态：**未开始实现**（仿真阶段以 AirSim odom 替代）。
+当前状态：**已实现**（仿真）；真机外参标定为可选后续。
 
 ### 6.3 局部规划层
 
@@ -245,9 +248,9 @@ PX4 SITL + AirSim
 - 接收 `target_position_world`（来自 `semantic_target_tf_node.py` 或 `semantic_goal_to_planner.py` 发布的 `/uav/target_goal`）作为导航目标。
 - 融合深度点云（AirSim DepthPlanar / 点云）生成局部无碰撞轨迹，持续重规划。
 - 输出局部可飞轨迹（B-spline → Twist → `keyboard_velocity`）。
-- 完整路线下使用 VINS-Fusion 提供的 world frame 位姿驱动规划。
+- 使用 `/uav/odom_enu`（由 `odom_local_ned` 桥接）驱动规划。
 
-当前状态：**EGO-Planner 已在仿真侧最小接入**（`planner_integration.launch.py`，以 `odom_local_ned` 驱动）；Fast-Planner 不作为候选；VINS-Fusion 位姿接入为后续工作。
+当前状态：**EGO-Planner 已在仿真侧最小接入**（`planner_integration.launch.py` / `uav_sim.launch.py`）；Fast-Planner 不作为候选。
 
 ---
 
@@ -368,7 +371,7 @@ PX4 SITL + AirSim
 技术选型（已锁定）：
 - 视觉语义识别：**YOLO-World**（open-vocabulary detection）
 - 深度类型：**DepthPlanar**（须与逆投影公式匹配）
-- 位姿对齐：**VINS-Fusion**（仿真阶段以 `odom_local_ned` 替代）
+- 位姿对齐：**AirSim/PX4 里程计**（`odom_local_ned` + NED→ENU 桥接）
 
 计划项：
 
@@ -378,25 +381,23 @@ PX4 SITL + AirSim
 - 已实现 **RViz 检测叠图**（`detections_image_overlay` + `ego_planner_debug.rviz` / **YOLOOverlay**）
 - **已接通**：`FIND_AND_GOTO` → `/uav/target_query` → 感知链 → `GOTO_NED` / `/uav/target_goal`（见 §4.2.1）；待强化：场景验收、**先视觉后进 LLM** 的编排、planner 与语义任务的抢占/互斥策略
 
-状态：🟡 进行中（感知子链与 FIND_AND_GOTO 执行链已落地；下一步是场景级验收、VINS、以及「视觉摘要 → LLM」若需则单独开发）
+状态：🟡 进行中（感知子链与 FIND_AND_GOTO 执行链已落地；下一步是场景级验收、以及「视觉摘要 → LLM」若需则单独开发）
 
-### Phase 3：VINS-Fusion 位姿接入 + EGO-Planner 完整闭环
+### Phase 3：EGO-Planner 与语义任务深度联动
 
-目标：将 Phase 2 生成的 `target_position_world` 接入 EGO-Planner，并用 VINS-Fusion 替换仿真位姿源，实现完整避障飞行闭环。
+目标：在 **AirSim/PX4 里程计** 位姿基线上，将 Phase 2 的 `target_position_world` / `/uav/target_goal` 与 EGO-Planner、FIND_AND_GOTO 编排打通，形成可验收的避障飞行闭环。
 
 技术选型（已锁定）：
-- 状态估计：**VINS-Fusion**（mono + IMU）
-- 局部规划：**EGO-Planner**（ESDF-free，已有仿真最小接入）
+- 位姿：**AirSim `odom_local_ned` → `odom_ned_to_enu_node`**
+- 局部规划：**EGO-Planner**（ESDF-free，仿真已最小接入）
 
 计划项：
 
-- VINS-Fusion mono + IMU 接入，发布 `/vins_estimator/odometry`
-- `semantic_target_tf_node.py` 的位姿输入切换到 VINS（仅改 `odom_topic` / remap）
-- EGO-Planner 接收 `target_position_world` → 生成局部轨迹 → PX4 执行
-- 定义目标更新 → 重规划 → 执行的动态闭环
+- EGO-Planner 接收语义 `/uav/target_goal` → 局部轨迹 → PX4 执行
+- FIND_AND_GOTO 与 planner 模式的抢占 / 互斥 / 超时策略
 - 安全层：规划速度上限、地理围栏、丢目标 / 低电量策略
 
-状态：🟡 已启动（EGO-Planner 仿真最小接入；VINS-Fusion 和完整闭环待实现）
+状态：🟡 已启动（EGO-Planner 仿真最小接入；语义—规划编排待产品化）
 
 当前进展（2026-03 ~ 2026-03-26）：
 
@@ -510,7 +511,7 @@ ros2 launch hw_insight yolo_world_test.launch.py
 
 ### 9.3 当前不应直接切入的开发方式
 
-- 不建议在未固定 Phase 0 回归前直接接 VINS / Planner。
+- 不建议在未固定 Phase 0 回归前直接接 EGO-Planner 全链。
 - 不建议把视觉模块直接耦合进 `llm_client.py`。
 - 不建议让 LLM 直接输出底层姿态角、原始 MAVLink 指令或 PID 参数。
 
@@ -546,7 +547,7 @@ ros2 launch hw_insight yolo_world_test.launch.py
 
 - 视觉目标检测准确率
 - 深度对齐误差
-- VINS 漂移指标
+- 里程计漂移 / 坐标系一致性指标（AirSim/PX4 odom 基线）
 - Ego-Planner / Fast-Planner 实时性
 - 动态障碍物绕飞效果
 
@@ -602,9 +603,9 @@ ros2 launch hw_insight yolo_world_test.launch.py
 - 🔲 修复当前 Python 环境中的 GPU 版本错配，恢复稳定 GPU 推理
 - 🔲 将测试目标从固定 `red car` 升级为动态语义 prompt（如 `person`、`yellow clothes person`）
 
-### P3：VINS-Fusion 接入 + EGO-Planner 完整闭环
+### P3：EGO-Planner 与语义任务编排
 
-- EGO-Planner 仿真链路已打通；后续：VINS-Fusion 位姿接入（remap 切换）、安全层与 `mission_manager`、动态障碍与性能 profiling
+- EGO-Planner 仿真链路已打通；后续：语义目标与 `FIND_AND_GOTO` 深度联动、安全层与 `mission_manager`、动态障碍与性能 profiling
 - 定义 `target_position_world` → EGO-Planner → PX4 bridge 完整数据流（当前经 B-spline→Twist→`keyboard_velocity`）
 - 验收目标：输入 `"找到目标并前往"` 后，无人机能在 AirSim 仿真中自主定位并接近目标
 
@@ -670,12 +671,12 @@ colcon build --packages-select plan_env ego_planner hw_insight
 
 **Phase 2 技术路线已锁定**，完整闭环为：
 
-> LLM 任务理解 → **YOLO-World** 开放词汇视觉识别 → AirSim DepthPlanar 几何 Grounding → **VINS-Fusion** world frame 位姿对齐 → `target_position_world` → **EGO-Planner** 局部轨迹规划 → PX4 执行
+> LLM 任务理解 → **YOLO-World** 开放词汇视觉识别 → AirSim DepthPlanar 几何 Grounding → **AirSim/PX4 里程计** world 对齐 → `target_position_world` → **EGO-Planner** 局部轨迹规划 → PX4 执行
 
 接下来的演进重点按优先级排列：
 
 1. **视觉产品化**：在已落地的 **`FIND_AND_GOTO`**、**`/uav/target_query`** 与 **`semantic_perception`（默认 `on_query` + `publish_target_goal=false`）** 上，做 **Stage I** 场景级回归；按需补充多目标选择、超时、抢占，以及可选的 **「先视觉摘要再进 LLM」** 编排（当前未实现）。
-2. **坐标系与精度**：camera → body → world 在机动飞行下的稳定度验证；继续以 AirSim **`odom_local_ned`** 为基线，准备 **VINS** 仅 remap 切换位姿源。
-3. **VINS-Fusion 接入**：mono + IMU 位姿估计，接入后语义 world 点与规划接口保持不变。
-4. **EGO-Planner 与语义目标编排**：语义发现后的 **`/uav/target_goal`** 与 **`planner_mode_for_goto`** 深度联动、安全抢占与任务级状态机（仿真链已可联调；**主链须另起 `semantic_perception`**，勿假设单条 launch 内含 YOLO）。
-5. 任务级自治、持续重规划、安全层与长期任务编排。
+2. **坐标系与精度**：camera → body → world 在机动飞行下的稳定度验证；位姿基线固定为 **`odom_local_ned` + NED→ENU 桥接**（不接入 VINS）。
+3. **EGO-Planner 与语义目标编排**：语义发现后的 **`/uav/target_goal`** 与 **`planner_mode_for_goto`** 深度联动、安全抢占与任务级状态机（仿真链已可联调；**主链须另起 `semantic_perception`**，勿假设单条 launch 内含 YOLO）。
+4. 任务级自治、持续重规划、安全层与长期任务编排。
+5. 真机 PX4 外参与里程计标定（可选，仍不引入 VINS）。

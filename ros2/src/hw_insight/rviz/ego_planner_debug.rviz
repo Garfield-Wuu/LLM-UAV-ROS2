@@ -46,6 +46,28 @@ Visualization Manager:
       Show Names: false
       Marker Scale: 0.5
 
+    # ── Actual flown trajectory (from odom_path_node) ──
+    - Class: rviz_default_plugins/Path
+      Name: FlightPath
+      Enabled: true
+      Topic:
+        Value: /uav/flight_path
+        Depth: 5
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+      Color: 0; 220; 255
+      Alpha: 1
+      Buffer Length: 1
+      Line Style: Billboards
+      Line Width: 0.08
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Style: None
+      Position Tolerance: 0.1
+
     # ── Planner trajectory markers ──
     - Class: rviz_default_plugins/Marker
       Name: GoalMarker

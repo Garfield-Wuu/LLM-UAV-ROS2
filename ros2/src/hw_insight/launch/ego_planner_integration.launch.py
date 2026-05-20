@@ -78,6 +78,21 @@ def generate_launch_description():
         ],
     )
 
+    odom_path_node = Node(
+        package='hw_insight',
+        executable='odom_path_node',
+        name='odom_path_node',
+        output='screen',
+        parameters=[
+            {'input_topic': odom_topic},
+            {'output_topic': '/uav/flight_path'},
+            {'frame_id': 'world'},
+            {'min_distance_m': 0.25},
+            {'max_points': 3000},
+            {'publish_rate_hz': 5.0},
+        ],
+    )
+
     ego_planner_node = Node(
         package='ego_planner',
         executable='ego_planner_node',
@@ -281,6 +296,7 @@ def generate_launch_description():
         goal_relay,
         depth_restamper_node,
         odom_ned_to_enu_node,
+        odom_path_node,
         ego_planner_node,
         bspline_relay,
         planner_velocity_bridge,

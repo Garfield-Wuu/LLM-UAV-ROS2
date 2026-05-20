@@ -2,7 +2,7 @@ mapping:
   frames:
     world_frame: "world"
     planner_frame: "world"
-    vins_frame: "world"
+    odom_enu_frame: "world"
     px4_local_frame: "NED"
     project_convention_note: "规划层统一使用world(ENU)，对接PX4执行层时在桥接层处理ENU/NED转换。"
 
@@ -14,13 +14,13 @@ mapping:
       owner: "ego_planner"
       note: "TextCommandBridge在GOTO_NED时发布目标点，供规划器消费。"
     odometry:
-      from: "/vins/odometry"
+      from: "/uav/odom_enu"
       type: "nav_msgs/msg/Odometry"
       to:
         - "odom_world"
         - "grid_map/odom"
       owner: "ego_planner"
-      note: "VINS位姿作为规划状态输入。"
+      note: "由 odom_ned_to_enu_node 从 AirSim NED odom 桥接；不接入 VINS。"
     cloud:
       from: "/uav/camera/points"
       type: "sensor_msgs/msg/PointCloud2"

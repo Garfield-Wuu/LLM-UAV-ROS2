@@ -35,6 +35,12 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
+from hw_insight.command_compiler import compile_intent
+from hw_insight.consistency_guard import guard_intent
+from hw_insight.intent_schema import normalize_intent
+from hw_insight.llm_intent_parser import build_intent_messages
+from hw_insight.safety_validator import validate_command
+
 
 # ── ANSI color / style helpers ────────────────────────────────────────────────
 _RST     = '\033[0m'
@@ -194,66 +200,72 @@ _PARAM_SCHEMA: Dict[str, list] = {
 }
 
 _SYSTEM_PROMPT_TEMPLATE = """\
-你是专业无人机飞控 AI。将用户自然语言指令转换为 JSON 飞行指令。
+你是无人机任务指令转换器。你的唯一任务是把用户自然语言转换为可执行 JSON，
+不要输出解释、闲聊、Markdown 或代码块。
 
-可用 Actions（只能从此列表选择）：
-  TAKEOFF        {{"action":"TAKEOFF","params":{{"altitude":6.0}}}}
-  LAND           {{"action":"LAND","params":{{}}}}
-  HOVER          {{"action":"HOVER","params":{{"duration":5.0}}}}
-  MOVE_VELOCITY  {{"action":"MOVE_VELOCITY","params":{{"vx":2,"vy":0,"vz":0,"yaw_rate":0,"duration":3}}}}
-  MOVE_REL       {{"action":"MOVE_REL","params":{{"dx":5,"dy":0,"dz":0,"duration":2.5}}}}
-  GOTO_NED       {{"action":"GOTO_NED","params":{{"x":10,"y":5,"altitude":6}}}}
-  ORBIT          {{"action":"ORBIT","params":{{"cx":0,"cy":0,"radius":5,"speed":2,"duration":30}}}}
-  YAW_TO         {{"action":"YAW_TO","params":{{"angle":90}}}}
-  RTL            {{"action":"RTL","params":{{}}}}
-  EMERGENCY_STOP {{"action":"EMERGENCY_STOP","params":{{}}}}
-  SET_SPEED      {{"action":"SET_SPEED","params":{{"speed":3.0}}}}
-  FIND_AND_GOTO  {{"action":"FIND_AND_GOTO","params":{{"query":"person wearing yellow clothes"}}}}
-    ↑ 当用户描述需要视觉识别的目标时使用此动作。
-      系统会用摄像头搜索目标，找到后自动飞至目标位置。
-      query 必须用英文描述目标的外观特征，例如：
-        "person wearing yellow jacket"
-        "red car"
-        "blue bicycle near the tree"
+━━━ 可用动作（只能使用这些 action）━━━
+TAKEOFF        起飞到指定高度: {{"action":"TAKEOFF","params":{{"altitude":6.0}}}}
+LAND           原地降落: {{"action":"LAND","params":{{}}}}
+HOVER          悬停: {{"action":"HOVER","params":{{"duration":5.0}}}}
+MOVE_REL       相对位移: {{"action":"MOVE_REL","params":{{"dx":5,"dy":0,"dz":0,"duration":2.5}}}}
+MOVE_VELOCITY  定时速度/相对转向: {{"action":"MOVE_VELOCITY","params":{{"vx":0,"vy":0,"vz":0,"yaw_rate":0.6,"duration":2.6}}}}
+GOTO_NED       飞到 NED 世界坐标: {{"action":"GOTO_NED","params":{{"x":10,"y":5,"altitude":6}}}}
+ORBIT          绕点飞行: {{"action":"ORBIT","params":{{"cx":0,"cy":0,"radius":5,"speed":2,"duration":30}}}}
+YAW_TO         转到绝对航向角: {{"action":"YAW_TO","params":{{"angle":90}}}}
+RTL            返航: {{"action":"RTL","params":{{}}}}
+EMERGENCY_STOP 紧急停止: {{"action":"EMERGENCY_STOP","params":{{}}}}
+SET_SPEED      设置速度: {{"action":"SET_SPEED","params":{{"speed":3.0}}}}
+FIND_AND_GOTO  视觉寻找并飞向目标: {{"action":"FIND_AND_GOTO","params":{{"query":"person"}}}}
 
-━━━ 坐标轴方向（严格遵守，错方向等于撞机）━━━
-MOVE_VELOCITY / MOVE_REL 使用机体坐标（相对无人机机头方向）：
-  方向词     →  参数      符号
-  前进/向前  →  vx/dx    正(+)   ← 沿机头方向飞
-  后退/向后  →  vx/dx    负(-)   ← 沿机尾方向飞
-  右移/向右  →  vy/dy    正(+)   ← 沿机身右侧飞
-  左移/向左  →  vy/dy    负(-)   ← 沿机身左侧飞
-  上升/向上  →  vz/dz    负(-) ← 垂直上升（z轴朝下，上升为负！）
-  下降/向下  →  vz/dz    正(+)   ← 垂直下降
-  右转/顺时针转 → yaw_rate 正(+) ← 相对当前机头向右转
-  左转/逆时针转 → yaw_rate 负(-) ← 相对当前机头向左转
-altitude 参数（TAKEOFF/GOTO_NED）始终正值，向上为正，无需转换。
-GOTO_NED 的 x/y 是 NED 世界坐标（x=北, y=东），与机头方向无关。
+━━━ 动作选择规则 ━━━
+1. 用户说“飞到/靠近/前往/跟随/找到后过去 + 视觉目标”时，才使用 FIND_AND_GOTO。
+2. 用户只是问“有没有/看一下/前面有人吗/是什么”时，不要使用 FIND_AND_GOTO；
+   当前系统没有只看不飞的视觉查询动作，返回 HOVER。
+3. FIND_AND_GOTO 的 query 是给 YOLO 的英文短标签（1～2 个词，逗号分隔多标签）：
+   只用基础类别词（person/car）或「颜色,类别」如 red,car；禁止 wearing/clothes 等长短语。
+   例：“飞到人旁边” → query="person"；
+      “飞到红色汽车旁边” → query="red,car"；
+      “前往穿红色衣服的人” → query="red,person" 或 query="person"（不要 person wearing red clothes）。
+4. 用户说“前/后/左/右/上/下 + 距离”时，优先使用 MOVE_REL。
+5. 用户说“前进/后退/左移/右移/上升/下降 + 速度 + 时间”时，使用 MOVE_VELOCITY。
+6. 只有用户明确说“NED/world/坐标/航点/x=.../y=...”时，才使用 GOTO_NED。
+7. 只有用户明确说“绝对航向/朝向/heading/航向角=...”时，才使用 YAW_TO。
+8. 普通“左转/右转 N 度”是相对转向，使用 MOVE_VELOCITY 的 yaw_rate + duration。
 
-━━━ 用户语言默认解释 ━━━
-  用户自然语言中的“前/后/左/右/左转/右转”默认都是相对当前无人机航向和当前位置。
-  相对平移使用 MOVE_REL，不要用 GOTO_NED。
-    例：“向右飞5米” → {{"action":"MOVE_REL","params":{{"dx":0,"dy":5,"dz":0,"duration":2.5}}}}
-    例：“向前飞10米” → {{"action":"MOVE_REL","params":{{"dx":10,"dy":0,"dz":0,"duration":5.0}}}}
-  相对转向使用 MOVE_VELOCITY 的 yaw_rate + duration，不要用 YAW_TO。
-    例：“向右转90度” → {{"action":"MOVE_VELOCITY","params":{{"vx":0,"vy":0,"vz":0,"yaw_rate":0.6,"duration":2.6}}}}
-    例：“向左转90度” → {{"action":"MOVE_VELOCITY","params":{{"vx":0,"vy":0,"vz":0,"yaw_rate":-0.6,"duration":2.6}}}}
-  只有用户明确说“NED坐标 / world坐标 / 航点 / 飞到x=...y=...”时，才使用 GOTO_NED。
-  只有用户明确说“绝对航向/朝向/heading/航向角=...”时，才使用 YAW_TO。
+━━━ 坐标和符号（严格遵守）━━━
+MOVE_REL / MOVE_VELOCITY 使用机体相对语义：
+  前进/向前: dx/vx 为正；后退/向后: dx/vx 为负。
+  右移/向右: dy/vy 为正；左移/向左: dy/vy 为负。
+  上升/向上: dz/vz 为负；下降/降低/向下: dz/vz 为正。
+  右转/顺时针: yaw_rate 为正；左转/逆时针: yaw_rate 为负。
+TAKEOFF 和 GOTO_NED 的 altitude 始终是正数高度，不能写负数。
+GOTO_NED 的 x/y 是 NED 世界坐标：x=北，y=东，与机头方向无关。
 
-━━━ 安全约束 ━━━
-  最大飞行高度：{max_altitude} 米  |  最大速度：{max_speed} m/s
+━━━ 参数默认值 ━━━
+未给速度时，水平相对位移按约 2 m/s 估算 duration。
+未给速度时，垂直相对位移按约 1 m/s 估算 duration。
+未给悬停时长时，HOVER 可省略 duration 或使用 0。
+缺少必要参数、语义不明确或可能不安全时，返回 HOVER。
+
+━━━ 安全边界 ━━━
+最大飞行高度：{max_altitude} 米。
+最大速度：{max_speed} m/s。
+不要生成超过边界的高度、速度、位移或长时间动作。
+不确定用户意图时，选择 HOVER，而不是猜测。
 
 ━━━ 当前无人机状态 ━━━
-  武装: {arming_state}   飞行阶段: {flight_phase}
+武装: {arming_state}   飞行阶段: {flight_phase}
 {telemetry_block}
-━━━ 输出规则（严格执行）━━━
-  1. 单步指令 → 输出一行纯 JSON：{{"action":"...","params":{{...}}}}
-  2. 多步指令 → 输出 plan 格式（系统会按序执行，每步完成后再执行下一步）：
-     {{"plan":[{{"action":"...","params":{{...}}}},{{"action":"...","params":{{...}}}}]}}
-  3. 指令不明确或不安全 → 返回 {{"action":"HOVER","params":{{}}}}
-  4. 无人机在地面(GROUND)且用户要求飞行 → plan 第一步必须是 TAKEOFF
-  5. 禁止任何解释文字，只输出 JSON"""
+
+━━━ 输出格式（严格执行）━━━
+单步指令只输出一行 JSON：
+{{"action":"...","params":{{...}}}}
+
+多步指令只输出 plan JSON，系统会按顺序执行：
+{{"plan":[{{"action":"...","params":{{...}}}},{{"action":"...","params":{{...}}}}]}}
+
+无人机在地面(GROUND)且用户要求飞行时，plan 第一步必须是 TAKEOFF。
+禁止输出 JSON 以外的任何文字。"""
 
 
 class LLMClient(Node):
@@ -283,6 +295,8 @@ class LLMClient(Node):
         self.declare_parameter('llm_timeout_sec',       120.0)
         # 避障规划模式：True 时 GOTO_NED 经 EGO-Planner 绕障导航，False 时直飞（P 控制器）
         self.declare_parameter('enable_planner',        False)
+        # intent: LLM 只抽取语义槽位；action: 兼容旧的直接 action prompt。
+        self.declare_parameter('parser_mode',           'intent')
 
         p = self.get_parameter
         self._provider     = str(p('llm_provider').value)
@@ -296,6 +310,7 @@ class LLMClient(Node):
         self._auto_alt     = float(p('auto_takeoff_altitude').value)
         self._timeout      = float(p('llm_timeout_sec').value)
         self._enable_planner = bool(p('enable_planner').value)
+        self._parser_mode  = str(p('parser_mode').value).strip().lower()
 
         # ── Apply interactive selection overrides (highest priority) ─────────
         # Priority: interactive selection > ROS params > environment variables
@@ -304,6 +319,12 @@ class LLMClient(Node):
         self._ollama_model   = cfg.get('ollama_model',   self._ollama_model)
         self._ollama_host    = cfg.get('ollama_host',    self._ollama_host)
         self._enable_planner = cfg.get('enable_planner', self._enable_planner)
+        self._parser_mode    = cfg.get('parser_mode',    self._parser_mode)
+        if self._parser_mode not in ('intent', 'action'):
+            self.get_logger().warn(
+                f'未知 parser_mode={self._parser_mode!r}，已回退到 intent'
+            )
+            self._parser_mode = 'intent'
 
         # Groq API key: interactive > ROS param > env variable
         api_key_param = str(p('groq_api_key').value)
@@ -370,7 +391,8 @@ class LLMClient(Node):
             else f'Ollama / {self._ollama_model} @ {self._ollama_host}'
         )
         self.get_logger().info(
-            f'LLMClient ready  [{provider_info}]  llm_timeout_sec={self._timeout:g}'
+            f'LLMClient ready  [{provider_info}]  parser_mode={self._parser_mode}  '
+            f'llm_timeout_sec={self._timeout:g}'
         )
         if self._provider == 'ollama':
             self.get_logger().info(
@@ -627,6 +649,7 @@ class LLMClient(Node):
         )
         print(f'\n{_CYAN}{"─"*62}{_RST}')
         print(f'  {_BOLD}UAV LLM 飞控终端{_RST}  [{_CYAN}{provider_info}{_RST}]')
+        print(f'  解析模式: {_BOLD}{self._parser_mode}{_RST}  (intent=小模型语义槽位解析)')
         print(f'  {_DIM}{ts}{_RST}  系统状态: {online_str}')
         print(f'  {planner_str}')
         print(f'  输入自然语言指令后按回车发送  |  Ctrl+C 退出')
@@ -760,6 +783,18 @@ class LLMClient(Node):
             self._round_done.set()
             return
 
+        # ── Deterministic flight primitives: do not spend LLM on core controls
+        direct_cmd = self._parse_direct_flight_command(text)
+        if direct_cmd is not None:
+            if (self._flight_phase == 'GROUND'
+                    and direct_cmd.get('action') in ('MOVE_REL', 'MOVE_VELOCITY', 'YAW_TO', 'ORBIT')):
+                self._input_q.put(json.dumps(direct_cmd, ensure_ascii=False))
+                direct_cmd = {'action': 'TAKEOFF', 'params': {'altitude': self._auto_alt}}
+            self._tui_print('RULE', f'{_BOLD}{direct_cmd["action"]:<16s}{_RST} {direct_cmd["params"]}')
+            self._publish_cmd(direct_cmd)
+            self._round_done.set()
+            return
+
         # ── Show "推理中..." and hand off to background thread ───────────────
         self._tui_print('LLM', 'LLM 推理中…')
         self._llm_busy = True
@@ -779,6 +814,10 @@ class LLMClient(Node):
         """Runs in thread pool: call LLM, validate, then publish or execute plan."""
         llm_start = time.time()
         try:
+            if self._parser_mode == 'intent':
+                self._process_nl_intent(text, llm_start)
+                return
+
             system, user = self._build_messages(text)
             if self._verbose:
                 self.get_logger().info(f'[PROMPT SYS]\n{system}')
@@ -821,6 +860,57 @@ class LLMClient(Node):
             self._llm_busy = False
             self._round_done.set()
 
+    def _process_nl_intent(self, text: str, llm_start: float) -> None:
+        """LLM path for small models: intent slots -> compiler -> validator."""
+        system, user = build_intent_messages(text, self._telemetry_context_line())
+        if self._verbose:
+            self.get_logger().info(f'[INTENT PROMPT SYS]\n{system}')
+            self.get_logger().info(f'[INTENT PROMPT USR] {user}')
+
+        raw = self._call_llm(system, user)
+        elapsed = time.time() - llm_start
+        self._tui_print('LLM', f'意图解析完成  {elapsed:.1f}s')
+
+        raw, think = self._extract_think(raw)
+        if think:
+            self._log_think(text, think)
+        if self._verbose:
+            self.get_logger().info(f'[INTENT RAW] {raw}')
+
+        obj = self._extract_json_robust(raw)
+        if obj is None:
+            self._tui_print('LLM', f'意图 JSON 解析失败: {raw[:100]}', color=_RED)
+            self._publish_cmd({'action': 'HOVER', 'params': {}})
+            return
+
+        intent = normalize_intent(obj)
+        guarded, guard_reasons = guard_intent(text, intent)
+        for reason in guard_reasons:
+            self.get_logger().warn(f'[INTENT GUARD] {reason}')
+
+        cmd, compile_reason = compile_intent(guarded, self._auto_alt)
+        cmd, safety_warnings = validate_command(
+            cmd,
+            max_altitude_m=self._max_alt,
+            max_speed_ms=self._max_spd,
+        )
+        for warning in safety_warnings:
+            self.get_logger().warn(f'[INTENT SAFETY] {warning}')
+
+        queued_cmd = cmd
+        cmd, auto_inserted = self._maybe_auto_takeoff(cmd)
+        intent_label = guarded.get('intent', 'unknown')
+        self._tui_print(
+            'INTENT',
+            f'{intent_label} → {_BOLD}{cmd.get("action", "?"):<16s}{_RST} '
+            f'{cmd.get("params", {})}  ({compile_reason})',
+        )
+        if auto_inserted:
+            self.get_logger().info(
+                f'[INTENT] Grounded: queued compiled command after TAKEOFF: {queued_cmd}'
+            )
+        self._publish_cmd(cmd)
+
     def _build_messages(self, user_text: str) -> Tuple[str, str]:
         """Construct system prompt with current TELEMETRY context."""
         tele = self._latest_telemetry
@@ -848,6 +938,31 @@ class LLMClient(Node):
             telemetry_block=tele_block,
         )
         return system, user_text
+
+    def _telemetry_context_line(self) -> str:
+        """Compact telemetry context for the intent parser prompt."""
+        tele = self._latest_telemetry
+        if not tele:
+            return 'telemetry unavailable'
+        pos = tele.get('position') or {}
+        heading = float(tele.get('heading_deg') or 0.0)
+        alt_m = -float(pos.get('z', 0.0))
+        return (
+            f'phase={self._flight_phase}, armed={self._arming_state}, '
+            f'altitude_m={alt_m:.1f}, heading_deg={heading:.0f}, '
+            f'command={tele.get("command", "IDLE")}'
+        )
+
+    def _maybe_auto_takeoff(self, cmd: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
+        """Queue movement after TAKEOFF when the aircraft is still on ground."""
+        action = str(cmd.get('action', '')).upper()
+        if (
+            self._flight_phase == 'GROUND'
+            and action not in ('TAKEOFF', 'HOVER', 'LAND', 'RTL', 'EMERGENCY_STOP')
+        ):
+            self._input_q.put(json.dumps(cmd, ensure_ascii=False))
+            return {'action': 'TAKEOFF', 'params': {'altitude': self._auto_alt}}, True
+        return cmd, False
 
     # ── LLM provider calls ────────────────────────────────────────────────────
 
@@ -900,7 +1015,7 @@ class LLMClient(Node):
             # Models with <think> reasoning blocks (e.g. DeepSeek-R1) may wrap
             # JSON in reasoning; _extract_json_robust strips <think> blocks.
             'format': 'json',
-            'options': {'temperature': 0.1},
+            'options': {'temperature': 0.0, 'top_p': 0.8},
         }).encode()
         req = urllib.request.Request(
             f'{self._ollama_host}/api/chat',
@@ -1044,8 +1159,8 @@ class LLMClient(Node):
             try:
                 obj = json.loads(cand)
                 if isinstance(obj, dict):
-                    # Accept if it looks like a UAV command or plan
-                    if 'action' in obj or 'plan' in obj:
+                    # Accept if it looks like a UAV command, plan, or intent.
+                    if 'action' in obj or 'plan' in obj or 'intent' in obj:
                         return obj
             except json.JSONDecodeError:
                 continue
@@ -1053,6 +1168,7 @@ class LLMClient(Node):
         # S3: regex fallback — look for {"action":"...", ...} or {"plan":[...]}
         patterns = [
             r'\{[^{}]*"action"\s*:\s*"[^"]+?"[^{}]*\}',          # single cmd
+            r'\{[^{}]*"intent"\s*:\s*"[^"]+?"[^{}]*\}',          # single intent
             r'\{\s*"plan"\s*:\s*\[[\s\S]*?\]\s*\}',               # plan block
         ]
         for pat in patterns:
@@ -1177,6 +1293,134 @@ class LLMClient(Node):
         return 0
 
     @staticmethod
+    def _chinese_number_to_float(token: str) -> Optional[float]:
+        digits = {'零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4,
+                  '五': 5, '六': 6, '七': 7, '八': 8, '九': 9}
+        if not token:
+            return None
+        if '点' in token:
+            left, right = token.split('点', 1)
+            base = LLMClient._chinese_number_to_float(left) or 0.0
+            frac = ''.join(str(digits[c]) for c in right if c in digits)
+            return base + (float(f'0.{frac}') if frac else 0.0)
+        if token == '十':
+            return 10.0
+        if '十' in token:
+            left, right = token.split('十', 1)
+            tens = digits.get(left, 1) if left else 1
+            ones = digits.get(right, 0) if right else 0
+            return float(tens * 10 + ones)
+        if token in digits:
+            return float(digits[token])
+        return None
+
+    @staticmethod
+    def _extract_quantity(text: str, units: Tuple[str, ...]) -> Optional[float]:
+        unit_pattern = '|'.join(re.escape(unit) for unit in units)
+        numeric = re.search(rf'(\d+(?:\.\d+)?)\s*(?:{unit_pattern})', text)
+        if numeric:
+            return float(numeric.group(1))
+        chinese = re.search(rf'([零一二两三四五六七八九十点]+)\s*(?:{unit_pattern})', text)
+        if chinese:
+            return LLMClient._chinese_number_to_float(chinese.group(1))
+        return None
+
+    @staticmethod
+    def _has_any(text: str, terms: Tuple[str, ...]) -> bool:
+        return any(term in text for term in terms)
+
+    def _parse_direct_flight_command(self, user_text: str) -> Optional[Dict[str, Any]]:
+        """Deterministically parse common low-level flight primitives.
+
+        These commands are safety-critical and have stable semantics, so they
+        should not depend on LLM interpretation or prompt examples.
+        """
+        text = ''.join(user_text.lower().split())
+        if not text:
+            return None
+
+        if self._has_any(text, ('紧急停止', '急停', '刹停', '停机', 'emergencystop', 'estop')):
+            return {'action': 'EMERGENCY_STOP', 'params': {}}
+        if self._has_any(text, ('返航', '回家', 'rtl', 'returnhome')):
+            return {'action': 'RTL', 'params': {}}
+        if self._has_any(text, ('降落', '着陆', '落地', 'land')):
+            return {'action': 'LAND', 'params': {}}
+        if self._has_any(text, ('悬停', '保持', '原地等', 'hover')):
+            duration = self._extract_quantity(text, ('秒', 's'))
+            return {'action': 'HOVER', 'params': {'duration': round(duration or 0.0, 2)}}
+        if self._has_any(text, ('起飞', '升空', 'takeoff')):
+            altitude = self._extract_quantity(text, ('米', 'm')) or self._auto_alt
+            return {'action': 'TAKEOFF', 'params': {'altitude': round(abs(altitude), 2)}}
+
+        turn_direction = self._relative_turn_direction(text)
+        if turn_direction != 0:
+            angle_deg = self._extract_quantity(text, ('度', '°')) or 30.0
+            angle_deg = max(1.0, min(360.0, abs(angle_deg)))
+            yaw_rate = 0.6 * turn_direction
+            duration = max(0.5, math.radians(angle_deg) / abs(yaw_rate))
+            return {
+                'action': 'MOVE_VELOCITY',
+                'params': {
+                    'vx': 0.0,
+                    'vy': 0.0,
+                    'vz': 0.0,
+                    'yaw_rate': round(yaw_rate, 2),
+                    'duration': round(duration, 2),
+                },
+            }
+
+        if self._has_any(text, ('到', '至', '飞往', '前往')) and self._has_any(text, ('高度', '坐标', '航点')):
+            return None
+
+        distance = self._extract_quantity(text, ('米', 'm'))
+        if distance is None:
+            return None
+        distance = max(0.1, abs(distance))
+
+        forward_terms = ('前进', '向前', '往前', '前飞', '朝前', '正前方', '前方')
+        back_terms = ('后退', '向后', '往后', '后飞', '朝后', '后方')
+        right_terms = ('右移', '向右', '往右', '右飞', '朝右', '右侧', '右边')
+        left_terms = ('左移', '向左', '往左', '左飞', '朝左', '左侧', '左边')
+        up_terms = ('上升', '升高', '向上', '往上', '上移', '拉高')
+        down_terms = ('下降', '降低', '向下', '往下', '下移', '下去')
+
+        dx = dy = dz = 0.0
+        horizontal_hits = 0
+        vertical_hits = 0
+        if self._has_any(text, forward_terms):
+            dx += distance
+            horizontal_hits += 1
+        if self._has_any(text, back_terms):
+            dx -= distance
+            horizontal_hits += 1
+        if self._has_any(text, right_terms):
+            dy += distance
+            horizontal_hits += 1
+        if self._has_any(text, left_terms):
+            dy -= distance
+            horizontal_hits += 1
+        if self._has_any(text, up_terms):
+            dz -= distance
+            vertical_hits += 1
+        if self._has_any(text, down_terms):
+            dz += distance
+            vertical_hits += 1
+
+        if horizontal_hits + vertical_hits != 1:
+            return None
+
+        speed = 1.0 if vertical_hits else 2.0
+        return {
+            'action': 'MOVE_REL',
+            'params': {
+                'dx': round(dx, 2),
+                'dy': round(dy, 2),
+                'dz': round(dz, 2),
+                'duration': round(max(0.5, distance / speed), 2),
+            },
+        }
+
+    @staticmethod
     def _relative_vertical_move(user_text: str) -> Optional[Dict[str, Any]]:
         """Parse unambiguous relative altitude requests such as "降低3米"."""
         text = ''.join(user_text.lower().split())
@@ -1212,6 +1456,39 @@ class LLMClient(Node):
             },
         }
 
+    @staticmethod
+    def _relative_horizontal_move(user_text: str) -> Optional[Dict[str, Any]]:
+        """Parse simple relative translations such as "左飞5米"."""
+        text = ''.join(user_text.lower().split())
+        if '转' in text or '旋' in text:
+            return None
+
+        directions = [
+            (('前飞', '向前飞', '往前飞', '前进', '向前', '往前'), 1.0, 0.0),
+            (('后飞', '向后飞', '往后飞', '后退', '向后', '往后'), -1.0, 0.0),
+            (('右飞', '向右飞', '往右飞', '右移', '向右', '往右'), 0.0, 1.0),
+            (('左飞', '向左飞', '往左飞', '左移', '向左', '往左'), 0.0, -1.0),
+        ]
+        matched = [(dx, dy) for terms, dx, dy in directions if any(term in text for term in terms)]
+        if len(matched) != 1:
+            return None
+
+        match = re.search(r'(\d+(?:\.\d+)?)\s*(?:米|m)?', text)
+        if not match:
+            return None
+
+        distance_m = max(0.1, float(match.group(1)))
+        dx_sign, dy_sign = matched[0]
+        return {
+            'action': 'MOVE_REL',
+            'params': {
+                'dx': round(dx_sign * distance_m, 2),
+                'dy': round(dy_sign * distance_m, 2),
+                'dz': 0.0,
+                'duration': round(max(0.5, distance_m / 2.0), 2),
+            },
+        }
+
     def _apply_relative_language_overrides(
         self,
         user_text: str,
@@ -1224,6 +1501,13 @@ class LLMClient(Node):
         so operator language remains relative to the current heading. Likewise,
         vertical relative distance requests must keep NED sign conventions.
         """
+        horizontal_move = self._relative_horizontal_move(user_text)
+        if horizontal_move is not None:
+            self.get_logger().info(
+                f'相对平移兜底：{cmd} -> {horizontal_move}（user="{user_text}"）'
+            )
+            return horizontal_move
+
         vertical_move = self._relative_vertical_move(user_text)
         if vertical_move is not None:
             self.get_logger().info(

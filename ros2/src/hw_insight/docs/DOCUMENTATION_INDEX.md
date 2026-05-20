@@ -15,6 +15,7 @@
 
 | 主题 | 权威位置 | 其他文档 |
 |------|----------|----------|
+| 系统五层架构（无 VINS） | [`SYSTEM_ARCHITECTURE.md`](SYSTEM_ARCHITECTURE.md) | PRD §4.1、README 文首 |
 | 当前主流程与 **YOLO 终端命令（T_YOLO）** | PRD **§9** | README / SESSION 仅交叉引用 |
 | YOLO × AirSim 联调、深度、`on_query`、RViz 叠图 | [`yolo_world_airsim_online_test.md`](yolo_world_airsim_online_test.md) | PRD §13、README §8.1 指向此文 |
 | 动作 JSON 协议 | [`COMMAND_PROTOCOL.md`](../COMMAND_PROTOCOL.md) | README §5.2、测试矩阵 |

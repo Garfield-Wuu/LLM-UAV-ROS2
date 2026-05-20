@@ -46,6 +46,7 @@ setup(
             'semantic_goal_to_planner = hw_insight.semantic_goal_to_planner:main',
             'yolo_world_monitor = hw_insight.yolo_world_monitor:main',
             'odom_ned_to_enu_node = hw_insight.odom_ned_to_enu_node:main',
+            'odom_path_node = hw_insight.odom_path_node:main',
             'depth_restamper_node = hw_insight.depth_restamper_node:main',
             'detections_image_overlay = hw_insight.detections_image_overlay:main',
         ],
