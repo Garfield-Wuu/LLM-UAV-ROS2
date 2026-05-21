@@ -35,7 +35,7 @@
 | 桥接 | uXRCE-DDS（`MicroXRCEAgent udp4 -p 8888`）| ✅ 运行中 |
 | LLM | Groq API / Ollama（含远程服务；默认可读 `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL`）| ✅ **已接入并增强** |
 | 视觉语义识别 | **YOLO-World**（open-vocabulary 目标检测，`prompt-then-detect` 范式）| ✅ ROS 2 已集成 |
-| 几何 Grounding | AirSim DepthPlanar/DepthPerspective + 逆投影 + tf2 坐标变换链 | ✅ 已实现（先用 AirSim odom 验证） |
+| 视觉定位支撑 | AirSim DepthPlanar/DepthPerspective + 逆投影 + tf2 坐标变换链 | ✅ 已实现（论文主体不作为核心贡献展开） |
 | 位姿与坐标 | **AirSim/PX4 里程计** + `odom_ned_to_enu_node` | ✅ 已实现（**不接入 VINS**） |
 | 局部轨迹规划 | **EGO-Planner**（输入 `/uav/odom_enu`） | ⚠️ 仿真部分接入 |
 | 地面站 | QGroundControl（可选监控）| 可选 |
@@ -49,13 +49,13 @@
 
 ## 1.1 目标系统完整技术路线（Phase 2 主线）
 
-本系统的最终目标是构建"语言目标 → 视觉识别 → 几何 Grounding → world frame 目标 → 局部规划 → 飞行执行"的完整闭环。下表为各层技术选型与职责划分：
+系统工程目标保留"语言目标 → 视觉识别 → 视觉定位支撑 → world frame 目标 → 局部规划 → 飞行执行"的可演示闭环；论文重构目标则聚焦"自然语言 → JSON 任务原语 → PX4/AirSim 飞行行为"的可靠转换。下表为各层技术选型与职责划分：
 
 | 层级 | 技术选型 | 核心职责 |
 |------|---------|---------|
 | 任务理解层 | LLM（Groq / Ollama） | 自然语言 → 结构化任务描述（target_category / target_attribute / action） |
 | 视觉语义识别层 | **YOLO-World** | open-vocabulary 目标检测，输出 bbox / 置信度 |
-| 几何 Grounding 层 | AirSim DepthPlanar + 逆投影 + tf2 | 2D bbox → camera frame 3D 点；中位数深度鲁棒估计 |
+| 视觉定位支撑层 | AirSim DepthPlanar + 逆投影 + tf2 | 2D bbox → camera frame 3D 点；中位数深度鲁棒估计 |
 | 坐标系变换层 | tf2（camera→body→world） | 固定外参 + 实时位姿完成坐标系对齐 |
 | 位姿与坐标层 | **AirSim/PX4 odom** + NED→ENU 桥接 | world 帧位姿，用于目标世界坐标与规划（无 VINS） |
 | 轨迹规划层 | **EGO-Planner** | `target_position_world` → 局部可飞轨迹（ESDF-free，梯度优化） |
@@ -531,7 +531,7 @@ plan 格式已实现。LLM 可输出 `{"plan": [...]}` 多步计划，节点按�
 
 当前 LLM 每次调用无历史上下文（stateless）。后续可加入对话历史（最近 N 轮），支持"刚才那个动作再做一次"等指代。
 
-### P5（进行中）— Phase 2 完整闭环：视觉语义识别 + 几何 Grounding + 位姿对齐 + 局部规划
+### P5（进行中）— Phase 2 完整闭环：视觉语义识别 + 视觉定位支撑 + 位姿对齐 + 局部规划
 
 #### P5-A：YOLO-World 检测接口
 
@@ -546,7 +546,7 @@ plan 格式已实现。LLM 可输出 `{"plan": [...]}` 多步计划，节点按�
 - ✅ 系统需求已从固定 `red car` 升级为动态语义目标（如 `"yellow clothes person"`）
 - 🔲 验收：在 AirSim 实时场景中对通用 prompt（`person` / `car` / 属性类 prompt）稳定出框
 
-#### P5-B：深度图 RGB-D 配准与几何 Grounding
+#### P5-B：深度图 RGB-D 配准与视觉定位支撑
 
 > **S9 完成**：`target_grounding_node.py`。
 

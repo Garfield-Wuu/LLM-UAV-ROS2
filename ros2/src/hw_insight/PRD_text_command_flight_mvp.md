@@ -11,7 +11,7 @@
 | 适用项目 | `hw_insight`（PX4 + AirSim + ROS 2 Humble） |
 | 代码仓库 | `git@github.com:Garfield-Wuu/LLM-UAV-ROS2.git`（branch: main） |
 | 当前阶段 | Phase 0/1 已完成；**Phase 2 进行中**：语义感知链已落地；**AirSim + EGO-Planner 仿真避障与执行链已可联调**（`uav_sim.launch.py`、ENU/NED 桥、RViz）；位姿统一为 **AirSim/PX4 里程计**（**不接入 VINS-Fusion**）；当前重点为视觉任务协议深化与规划链联动 |
-| 文档定位 | 同时描述目标架构、当前实现和阶段化开发路线；**日常命令以 §9 为准**。维护边界见 [`docs/DOCUMENTATION_INDEX.md`](docs/DOCUMENTATION_INDEX.md)。 |
+| 文档定位 | 同时描述目标架构、当前实现和阶段化开发路线；**日常命令以 §9 为准**。论文重构口径以 [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) 为准：主线聚焦自然语言到 PX4/AirSim 飞行行为的可靠闭环转换。维护边界见 [`docs/DOCUMENTATION_INDEX.md`](docs/DOCUMENTATION_INDEX.md)。 |
 
 ---
 
@@ -35,7 +35,7 @@
 | 层级 | 目标技术方案 | 当前状态 | 说明 |
 |------|--------------|----------|------|
 | 大脑（Cognition） | Ollama（Llama 3 / Gemma） | ⚠️ 部分完成 | `llm_client.py` 已支持 Groq / Ollama 双后端、交互式模型选择、远端 Ollama 环境变量、冷启动预热、鲁棒 JSON 提取与 `<think>` 推理日志；**S11 新增**：`FIND_AND_GOTO` 视觉语义搜索 action（12 个 action，含 8 个别名），LLM 可直接输出视觉任务指令 |
-| 视觉（Perception） | **YOLO-World** + AirSim Depth Camera | ✅ 核心链路已实现 | YOLO-World 已在 `/home/hw/YOLO-World/` 本地部署；ROS 2 侧 **4 节点链**（检测 / grounding / TF / 可选 goal）；**`yolo_world_detector`** 支持 **`inference_mode=on_query`**（按 `/uav/target_query` 单次推理）；**`semantic_perception.launch.py` 默认 `on_query` + `publish_target_goal=false`**，避免联调时误发规划目标；**`detections_image_overlay`** 随 **`ego_planner_integration`** 在 RViz 叠画 bbox，并可叠加 **`depth_m`**（订阅 `/uav/semantic_targets_camera`）；联调手册见 **`hw_insight/docs/yolo_world_airsim_online_test.md`**；`FIND_AND_GOTO` 仍经 `text_command_bridge` → `/uav/target_query` → 视觉 → `GOTO_NED` |
+| 视觉（Perception） | **YOLO-World** + AirSim Depth Camera | ✅ 支撑链路已实现 | YOLO-World 已在 `/home/hw/YOLO-World/` 本地部署；ROS 2 侧 **4 节点链**（检测 / 视觉定位 / TF / 可选 goal）；**`yolo_world_detector`** 支持 **`inference_mode=on_query`**（按 `/uav/target_query` 单次推理）；**`semantic_perception.launch.py` 默认 `on_query` + `publish_target_goal=false`**，避免联调时误发规划目标；**`detections_image_overlay`** 随 **`ego_planner_integration`** 在 RViz 叠画 bbox，并可叠加 **`depth_m`**（订阅 `/uav/semantic_targets_camera`）；联调手册见 **`hw_insight/docs/yolo_world_airsim_online_test.md`**；论文主体不将 YOLO/视觉定位作为核心贡献，`FIND_AND_GOTO` 仍经 `text_command_bridge` → `/uav/target_query` → 视觉 → `GOTO_NED` |
 | 位姿与坐标 | **AirSim/PX4 里程计** + `odom_ned_to_enu_node` | ✅ 已实现 | NED：`/airsim_node/PX4/odom_local_ned`；ENU：`/uav/odom_enu` + TF `world`→`base_link`；**不接入 VINS-Fusion** |
 | 规划（Planning） | **EGO-Planner**（已选定） | ⚠️ 部分接入 | EGO-Planner（ROS 2）已接入仿真最小闭环；可用 `uav_sim.launch.py enable_ego_planner:=true` 与飞控链一并启动；`planner_velocity_bridge` 将规划器 **ENU world** 线速度转换为 **PX4 NED** 再送入 `move_velocity`；位姿输入为 `/uav/odom_enu`（由 AirSim NED odom 桥接） |
 | 通信与框架 | ROS 2 Humble + MAVROS 2 | ⚠️ 部分完成 | ROS 2 Humble 已落地；当前飞控通信主链实际使用 `px4_msgs + uXRCE-DDS`，尚未接入 MAVROS 2 |
@@ -204,7 +204,7 @@ PX4 SITL + AirSim
 
 以下模块中，视觉语义感知链已完成最小闭环；后续重点转为视觉任务协议与 EGO-Planner 深度联动（位姿沿用 AirSim/PX4 里程计，见 [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)）：
 
-### 6.1 视觉语义识别与几何 Grounding 层
+### 6.1 视觉语义识别与视觉定位支撑层
 
 当前节点：`yolo_world_detector.py`、`target_grounding_node.py`、`semantic_target_tf_node.py`；**仿真 RViz 叠图**：`detections_image_overlay.py`（非感知链一环，仅可视化）。
 
@@ -231,7 +231,7 @@ PX4 SITL + AirSim
 
 职责：
 
-- 为几何 Grounding、EGO-Planner、RViz 提供统一 **ENU `world`** 帧与 **`/uav/odom_enu`**。
+- 为视觉定位支撑、EGO-Planner、RViz 提供统一 **ENU `world`** 帧与 **`/uav/odom_enu`**。
 - 飞控执行层仍使用 **NED**；跨层转换仅在桥接节点与 `text_command_bridge` 内完成。
 - 真机阶段沿用 **PX4 本地位置/里程计** + 外参标定，不引入 VINS 路线。
 
@@ -364,7 +364,7 @@ PX4 SITL + AirSim
 
 状态：🟡 已启动（工程化增强中）
 
-### Phase 2：视觉语义识别 + 几何 Grounding + world frame 目标生成
+### Phase 2：视觉语义识别 + 视觉定位支撑 + world frame 目标生成
 
 目标：支持“飞向某物体 / 搜索某目标 / 跟踪某类目标”，实现从语言目标到 world frame 坐标的完整链路。
 
@@ -671,7 +671,7 @@ colcon build --packages-select plan_env ego_planner hw_insight
 
 **Phase 2 技术路线已锁定**，完整闭环为：
 
-> LLM 任务理解 → **YOLO-World** 开放词汇视觉识别 → AirSim DepthPlanar 几何 Grounding → **AirSim/PX4 里程计** world 对齐 → `target_position_world` → **EGO-Planner** 局部轨迹规划 → PX4 执行
+> LLM 任务理解 → **YOLO-World** 开放词汇视觉识别（支撑能力）→ AirSim DepthPlanar 视觉定位支撑 → **AirSim/PX4 里程计** world 对齐 → `target_position_world` → **EGO-Planner** 局部轨迹规划（支撑能力）→ PX4 执行
 
 接下来的演进重点按优先级排列：
 

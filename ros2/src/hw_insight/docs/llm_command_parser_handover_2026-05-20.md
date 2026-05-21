@@ -51,7 +51,7 @@
 - 多步 `plan` 顺序执行
 - TUI 状态监控与 `/uav/llm_task_status` 遥测回传
 - `TAKEOFF`、`LAND`、`HOVER`、`MOVE_REL`、`MOVE_VELOCITY`、`GOTO_NED`、`ORBIT`、`YAW_TO`、`RTL`、`EMERGENCY_STOP`、`SET_SPEED`、`FIND_AND_GOTO` 等动作协议
-- YOLO-World 开放词汇检测、深度 grounding、目标 world 坐标发布
+- YOLO-World 开放词汇检测、深度视觉定位支撑、目标 world 坐标发布（论文中仅作为支撑能力）
 - `FIND_AND_GOTO -> /uav/target_query -> YOLO -> semantic target -> GOTO_NED` 基础闭环
 - EGO-Planner AirSim 仿真侧规划桥接
 

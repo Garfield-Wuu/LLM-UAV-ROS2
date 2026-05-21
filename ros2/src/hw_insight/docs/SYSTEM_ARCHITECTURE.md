@@ -86,7 +86,7 @@
   → llm_client → FIND_AND_GOTO { query: "red,car" }
   → text_command_bridge 发布 /uav/target_query
   → YOLO-World（on_query，单帧推理）
-  → grounding + TF（依赖 odom_local_ned，非 VINS）
+  → 视觉定位 + TF（依赖 odom_local_ned，非 VINS）
   → bridge 取最高置信度目标 → ENU→NED → GOTO_NED
   → （可选）planner_mode 时发 /uav/target_goal → EGO-Planner
 ```
@@ -140,4 +140,4 @@
 
 - 保留 Ollama、ROS 2 agent、JSON 鲁棒提取、参数校验、任务原语、PX4 Offboard、AirSim 仿真。
 - YOLO-World 与 EGO-Planner 只作为支撑能力简述，不做算法推导和主要评价。
-- 删除或弱化几何 Grounding、VINS-Fusion、深度逆投影定位等与论文核心问题不直接相关的算法展开。
+- 删除或弱化几何定位、VINS-Fusion、深度逆投影等与论文核心问题不直接相关的算法展开。

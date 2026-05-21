@@ -16,7 +16,7 @@
 - TUI 状态监控
 - 回归测试
 - YOLO-World ROS 2 实时检测（**GPU 推理**，torch cu128 / CUDA 12.9 已验证；`/uav/target_query` 动态 prompt 或静态 `texts` 参数）
-- 深度图几何 Grounding（bbox 区域中位数深度 + `camera_info` 逆投影）
+- 深度图视觉定位支撑（bbox 区域中位数深度 + `camera_info` 逆投影；论文主体不作为核心贡献展开）
 - camera frame → world frame 目标点转换（ENU 输出）
 - `/uav/target_goal` 语义目标发布与 RViz marker 可视化
 - **LLM → `FIND_AND_GOTO` → YOLO-World 检测 → ENU→NED 转换 → `GOTO_NED` 自动飞行**（视觉任务端到端闭环已接通，等待场景联调验证）
@@ -264,7 +264,7 @@ ros2 topic pub --once /uav/user_command std_msgs/msg/String \
 搜索前方的行人
 ```
 
-系统行为：LLM 解析 → `FIND_AND_GOTO query="..."` → bridge 发布 `/uav/target_query` → YOLO-World GPU 检测 → 深度 grounding → world 坐标 → ENU→NED → `GOTO_NED` → 飞行到目标。
+系统行为：LLM 解析 → `FIND_AND_GOTO query="..."` → bridge 发布 `/uav/target_query` → YOLO-World GPU 检测 → 深度视觉定位支撑 → world 坐标 → ENU→NED → `GOTO_NED` → 飞行到目标。
 
 观察指标：
 - `TELEMETRY` 中 `command` 字段变为 `SEARCHING`，有 `searching_query` 和 `search_remaining_sec`
@@ -436,7 +436,7 @@ ros2 topic pub --once /uav/target_query std_msgs/msg/String "data: car"
 4. **坐标系变换链**：`camera frame → body frame（固定外参）→ world frame（使用 AirSim/PX4 odom，不接入 VINS-Fusion）`。
 
 ```bash
-# 检查 grounding 输出
+# 检查视觉定位支撑输出
 ros2 topic echo /uav/semantic_targets_camera --once
 ```
 
